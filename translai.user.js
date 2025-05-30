@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.0.0
+// @version      1.0.1
 // @description  -
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -136,7 +136,7 @@ class Chapter {
         names.sort((a, b) => b.translated.length - a.translated.length);
 
         for (const name of names) {
-            content = content.replace(new RegExp(`(?!<span[^>]*>)${RegExp.escape(name.translated)}(?!</span>)`, 'g'), () => {
+            content = content.replace(new RegExp(`(?!<span[^>]*>)${name.translated}(?![^<]*</span>)`, 'g'), () => {
                 let color = Color.RED;
                 if (name.checked) color = Color.BLUE;
                 if (NameManager.isGlobal(name)) color = Color.GREEN;

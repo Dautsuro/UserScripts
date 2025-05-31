@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.0.1
+// @version      1.1.0
 // @description  -
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -152,11 +152,13 @@ class NameManager {
     static async init() {
         this.localNames = await GM.getValue(`names:${Novel.id}`) || [];
         this.globalNames = await GM.getValue('names') || [];
+        this.localBannedNames = await GM.getValue(`bannedNames:${Novel.id}`) || [];
+        this.globalBannedNames = await GM.getValue('bannedNames') || [];
     }
 
     static addNames(names) {
         for (const name of names) {
-            if (!this.getName(name.original)) {
+            if (!this.getName(name.original) && !this.isBanned(name.original)) {
                 this.localNames.push(name);
             }
         }
@@ -174,9 +176,20 @@ class NameManager {
         return null;
     }
 
+    static getBannedNames() {
+        return [...this.localBannedNames, ...this.globalBannedNames];
+    }
+
+    static isBanned(originalName) {
+        const bannedNames = this.getBannedNames();
+        return bannedNames.includes(originalName);
+    }
+
     static save() {
         GM.setValue(`names:${Novel.id}`, this.localNames);
         GM.setValue('names', this.globalNames);
+        GM.setValue(`bannedNames:${Novel.id}`, this.localBannedNames);
+        GM.setValue('bannedNames', this.globalBannedNames);
     }
 
     static getNames() {
@@ -287,6 +300,21 @@ class NameManager {
         this.save();
         Chapter.instance?.refreshDOM();
     }
+
+    static deleteName() {
+        const name = this.getSelectedName();
+        if (!name) return;
+        this.removeName(name);
+        const isGlobal = confirm('Global delete?');
+
+        if (isGlobal) {
+            this.globalBannedNames.push(name.original);
+        } else {
+            this.localBannedNames.push(name.original);
+        }
+
+        this.save();
+    }
 }
 
 class Button {
@@ -323,6 +351,7 @@ new Button('📋', Position.RIGHT, NameManager.copyName.bind(NameManager));
 
 new Button('✏️', Position.LEFT, NameManager.editName.bind(NameManager));
 new Button('➖', Position.LEFT, NameManager.removeName.bind(NameManager));
+new Button('❌', Position.LEFT, NameManager.deleteName.bind(NameManager));
 
 if (url.includes('/book/')) {
     const titleElement = document.querySelector('.booknav2 > h1:nth-child(1) > a:nth-child(1)');

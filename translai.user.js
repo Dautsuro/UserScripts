@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.3.0
+// @version      1.3.1
 // @description  -
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -72,7 +72,7 @@ class Gemini {
             const data = await response.json();
             return data.candidates[0].content.parts[0].text;
         } catch (error) {
-            handleError('Error while asking Gemini', error);
+            throw error;
         }
     }
 }

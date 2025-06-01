@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.1.0
+// @version      1.2.0
 // @description  -
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -18,12 +18,19 @@ const Color = {
     GREEN: '#d4edda',
     RED: '#f8d7da',
     GRAY: '#e0e8f0',
-    BLUE: '#afcde9'
+    BLUE: '#afcde9',
+    ORANGE: '#ffe5b4'
 }
 
 const Position = {
     RIGHT: 'right',
     LEFT: 'left'
+}
+
+const SubState = {
+    NONE: 0,
+    FULL: 1,
+    PARTIAL: 2
 }
 
 class Gemini {
@@ -137,10 +144,13 @@ class Chapter {
 
         for (const name of names) {
             content = content.replace(new RegExp(`(?!<span[^>]*>)${name.translated}(?![^<]*</span>)`, 'g'), () => {
+                const subState = NameManager.getSubState(name);
                 let color = Color.RED;
+                if (subState === SubState.PARTIAL) color = Color.ORANGE;
+                if (subState === SubState.FULL) color = Color.GREEN;
                 if (name.checked) color = Color.BLUE;
                 if (NameManager.isGlobal(name)) color = Color.GREEN;
-                return `<span style="background-color: ${color}; user-select: all;" data-original="${name.original}">${name.translated}</span>`;
+                return `<span style="background-color: ${color}; user-select: all;" data-original="${name.original}">${name.translated}${subState !== SubState.NONE ? '*' : ''}</span>`;
             });
         }
 
@@ -314,6 +324,20 @@ class NameManager {
         }
 
         this.save();
+    }
+
+    static getSubState(subName) {
+        if (this.isGlobal(subName)) return SubState.NONE;
+        let isPartial = false;
+
+        for (const name of this.globalNames) {
+            if (name.original.includes(subName.original)) {
+                if (name.translated.includes(subName.translated)) return SubState.FULL;
+                isPartial = true;
+            }
+        }
+
+        return isPartial ? SubState.PARTIAL : SubState.NONE;
     }
 }
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.2.0
+// @version      1.3.0
 // @description  -
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -35,12 +35,16 @@ const SubState = {
 
 class Gemini {
     static async init() {
-        this.apiKey = await GM.getValue('apiKey');
+        try {
+            this.apiKey = await GM.getValue('apiKey');
 
-        if (!this.apiKey) {
-            this.apiKey = prompt('Enter your Gemini API key').trim();
-            if (!this.apiKey) return;
-            GM.setValue('apiKey', this.apiKey);
+            if (!this.apiKey) {
+                this.apiKey = prompt('Enter your Gemini API key').trim();
+                if (!this.apiKey) return;
+                GM.setValue('apiKey', this.apiKey);
+            }
+        } catch (error) {
+            handleError('Error while handling API key', error);
         }
     }
 
@@ -58,9 +62,18 @@ class Gemini {
             body: JSON.stringify(payload)
         }
 
-        const response = await fetch(url, options);
-        const data = await response.json();
-        return data.candidates[0].content.parts[0].text;
+        try {
+            const response = await fetch(url, options);
+
+            if (!response.ok) {
+                throw new Error(`Bad request: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.candidates[0].content.parts[0].text;
+        } catch (error) {
+            handleError('Error while asking Gemini', error);
+        }
     }
 }
 
@@ -91,12 +104,22 @@ class Novel {
         }
 
         const titleInstruction = 'You are a professional Chinese-to-English translator. Translate the provided Chinese novel title into English. Output only the translated title.';
-        this.translatedTitle = await Gemini.ask(titleInstruction, title);
-        this.titleElement.innerText = this.translatedTitle;
+
+        try {
+            this.translatedTitle = await Gemini.ask(titleInstruction, title);
+            this.titleElement.innerText = this.translatedTitle;
+        } catch (error) {
+            handleError('Error while translating title', error);
+        }
 
         const synopsisInstruction = 'You are a professional Chinese-to-English translator. Translate the provided Chinese novel synopsis into English. Output only the translated synopsis.';
-        this.translatedSynopsis = await Gemini.ask(synopsisInstruction, synopsis);
-        this.synopsisElement.innerText = this.translatedSynopsis;
+        
+        try {
+            this.translatedSynopsis = await Gemini.ask(synopsisInstruction, synopsis);
+            this.synopsisElement.innerText = this.translatedSynopsis;
+        } catch (error) {
+            handleError('Error while translating synopsis', error);
+        }
     }
 }
 
@@ -117,7 +140,13 @@ class Chapter {
         }
 
         const instruction = 'You are a professional Chinese-to-English translator. Translate the provided Chinese novel chapter into English. Output only the translated chapter.';
-        this.translatedContent = await Gemini.ask(instruction, content);
+
+        try {
+            this.translatedContent = await Gemini.ask(instruction, content);
+        } catch (error) {
+            handleError('Error while translating chapter', error);
+        }
+        
         this.refreshDOM();
         this.extractNames();
     }
@@ -131,9 +160,14 @@ class Chapter {
         English chapter:
         ${this.translatedContent}`;
 
-        const extractedNames = await Gemini.ask(instruction, input);
-        const names = JSON.parse(extractedNames.replace(/```json|```/g, ''));
-        NameManager.addNames(names);
+        try {
+            const extractedNames = await Gemini.ask(instruction, input);
+            const names = JSON.parse(extractedNames.replace(/```json|```/g, ''));
+            NameManager.addNames(names);
+        } catch (error) {
+            handleError('Error while extracting names', error);
+        }
+        
         this.refreshDOM();
     }
 
@@ -160,10 +194,14 @@ class Chapter {
 
 class NameManager {
     static async init() {
-        this.localNames = await GM.getValue(`names:${Novel.id}`) || [];
-        this.globalNames = await GM.getValue('names') || [];
-        this.localBannedNames = await GM.getValue(`bannedNames:${Novel.id}`) || [];
-        this.globalBannedNames = await GM.getValue('bannedNames') || [];
+        try {
+            this.localNames = await GM.getValue(`names:${Novel.id}`) || [];
+            this.globalNames = await GM.getValue('names') || [];
+            this.localBannedNames = await GM.getValue(`bannedNames:${Novel.id}`) || [];
+            this.globalBannedNames = await GM.getValue('bannedNames') || [];
+        } catch (error) {
+            handleError('Error while reading names', error);
+        }
     }
 
     static addNames(names) {
@@ -196,10 +234,14 @@ class NameManager {
     }
 
     static save() {
-        GM.setValue(`names:${Novel.id}`, this.localNames);
-        GM.setValue('names', this.globalNames);
-        GM.setValue(`bannedNames:${Novel.id}`, this.localBannedNames);
-        GM.setValue('bannedNames', this.globalBannedNames);
+        try {
+            GM.setValue(`names:${Novel.id}`, this.localNames);
+            GM.setValue('names', this.globalNames);
+            GM.setValue(`bannedNames:${Novel.id}`, this.localBannedNames);
+            GM.setValue('bannedNames', this.globalBannedNames);
+        } catch (error) {
+            handleError('Error while saving names', error);
+        }
     }
 
     static getNames() {
@@ -363,6 +405,23 @@ class Button {
         Button[`${position}Offset`] += 40;
         document.body.appendChild(element);
     }
+}
+
+function handleError(reason, error) {
+    alert(reason);
+    
+    const errorDetails = {
+        string: error.toString(),
+        cause: error.cause,
+        columnNumber: error.columnNumber,
+        fileName: error.fileName,
+        lineNumber: error.lineNumber,
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+    }
+
+    document.body.innerHTML = `<pre>${JSON.stringify(errorDetails, null, 4)}</pre>`;
 }
 
 await Gemini.init();

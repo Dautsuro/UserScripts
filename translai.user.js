@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.3.1
+// @version      1.3.2
 // @description  -
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -48,11 +48,11 @@ class Gemini {
         }
     }
 
-    static async ask(instruction, input) {
+    static async ask(instruction, input, retries = 3, delay = 1000) {
         const payload = {
             systemInstruction: { parts: [{ text: instruction }] },
             contents: [{ parts: [{ text: input }] }]
-        }
+        };
 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
 
@@ -60,19 +60,27 @@ class Gemini {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
-        }
+        };
 
-        try {
-            const response = await fetch(url, options);
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+                const response = await fetch(url, options);
 
-            if (!response.ok) {
-                throw new Error(`Bad request: ${response.status}`);
+                if (response.status === 503 && attempt < retries) {
+                    await new Promise(res => setTimeout(res, delay));
+                    continue;
+                }
+
+                if (!response.ok) {
+                    throw new Error(`Bad request: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return data.candidates[0].content.parts[0].text;
+            } catch (error) {
+                if (attempt === retries) throw error;
+                await new Promise(res => setTimeout(res, delay));
             }
-
-            const data = await response.json();
-            return data.candidates[0].content.parts[0].text;
-        } catch (error) {
-            throw error;
         }
     }
 }

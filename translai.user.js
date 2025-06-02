@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.3.5
+// @version      1.3.6
 // @description  -
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -180,7 +180,6 @@ class Chapter {
         }
         
         this.refreshDOM();
-        alert('Chapter is ready');
     }
 
     refreshDOM() {

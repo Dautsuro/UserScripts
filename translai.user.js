@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.3.2
+// @version      1.3.3
 // @description  -
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -48,7 +48,7 @@ class Gemini {
         }
     }
 
-    static async ask(instruction, input, retries = 3, delay = 1000) {
+    static async ask(instruction, input, retries = 99, delay = 5000) {
         const payload = {
             systemInstruction: { parts: [{ text: instruction }] },
             contents: [{ parts: [{ text: input }] }]
@@ -68,6 +68,7 @@ class Gemini {
 
                 if (response.status === 503 && attempt < retries) {
                     await new Promise(res => setTimeout(res, delay));
+                    Chapter.instance?.element.innerText = `Gemini API is busy, retrying in ${delay / 1000} s. Attempt: ${attempt}`;
                     continue;
                 }
 
@@ -80,6 +81,7 @@ class Gemini {
             } catch (error) {
                 if (attempt === retries) throw error;
                 await new Promise(res => setTimeout(res, delay));
+                Chapter.instance?.element.innerText = `Gemini API is busy, retrying in ${delay / 1000} s. Attempt: ${attempt}`;
             }
         }
     }
@@ -155,7 +157,6 @@ class Chapter {
             handleError('Error while translating chapter', error);
         }
         
-        this.refreshDOM();
         this.extractNames();
     }
 
@@ -177,6 +178,7 @@ class Chapter {
         }
         
         this.refreshDOM();
+        alert('Chapter is ready');
     }
 
     refreshDOM() {

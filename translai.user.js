@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.3.3
+// @version      1.3.4
 // @description  -
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -62,13 +62,15 @@ class Gemini {
             body: JSON.stringify(payload)
         };
 
+        const chapter = Chapter.instance;
+
         for (let attempt = 0; attempt <= retries; attempt++) {
             try {
                 const response = await fetch(url, options);
 
                 if (response.status === 503 && attempt < retries) {
                     await new Promise(res => setTimeout(res, delay));
-                    Chapter.instance?.element.innerText = `Gemini API is busy, retrying in ${delay / 1000} s. Attempt: ${attempt}`;
+                    if (chapter) chapter.element.innerText = `Gemini API is busy, retrying in ${delay / 1000} s. Attempt: ${attempt}`;
                     continue;
                 }
 
@@ -81,7 +83,7 @@ class Gemini {
             } catch (error) {
                 if (attempt === retries) throw error;
                 await new Promise(res => setTimeout(res, delay));
-                Chapter.instance?.element.innerText = `Gemini API is busy, retrying in ${delay / 1000} s. Attempt: ${attempt}`;
+                if (chapter) chapter.element.innerText = `Gemini API is busy, retrying in ${delay / 1000} s. Attempt: ${attempt}`;
             }
         }
     }

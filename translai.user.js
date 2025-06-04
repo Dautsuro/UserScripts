@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.3.6
+// @version      1.3.7
 // @description  -
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -151,7 +151,7 @@ class Chapter {
             content = content.replace(new RegExp(RegExp.escape(name.original), 'g'), name.translated);
         }
 
-        const instruction = 'You are a professional Chinese-to-English translator. Translate the provided Chinese novel chapter into English. Output only the translated chapter.';
+        const instruction = 'You are a professional Chinese-to-English translator. Translate the provided Chinese novel chapter into English. Output only the translated chapter, including the title. If there is no title then create one based on the chapter.';
 
         try {
             this.translatedContent = await Gemini.ask(instruction, content);

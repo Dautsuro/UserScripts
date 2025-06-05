@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.3.9
+// @version      1.4.0
 // @description  -
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -10,6 +10,7 @@
 // @grant        GM.getValue
 // @grant        GM.setValue
 // @grant        GM.setClipboard
+// @grant        GM.listValues
 // ==/UserScript==
 
 const url = location.href;
@@ -180,6 +181,7 @@ class Chapter {
         }
         
         this.refreshDOM();
+        NameManager.checkCommonNames()
     }
 
     refreshDOM() {
@@ -256,7 +258,10 @@ class NameManager {
     }
 
     static getNames() {
-        return [...this.localNames, ...this.globalNames];
+        let names = [...this.localNames];
+        names = names.filter(n => !this.isGlobal(n));
+        names = [...names, ...this.globalNames];
+        return names;
     }
 
     static isGlobal(name) {
@@ -295,8 +300,8 @@ class NameManager {
         Chapter.instance?.refreshDOM();
     }
 
-    static addGlobal() {
-        const name = this.getSelectedName();
+    static addGlobal(name) {
+        if (!name?.original) name = this.getSelectedName();
         if (!name || this.isGlobal(name)) return;
 
         this.removeName(name);
@@ -392,6 +397,38 @@ class NameManager {
         }
 
         return isPartial ? SubState.PARTIAL : SubState.NONE;
+    }
+
+    static async checkCommonNames() {
+        let keys = await GM.listValues();
+        keys = keys.filter(k => k.startsWith('names:'));
+        const promises = keys.map(k => GM.getValue(k));
+        const namesList = await Promise.all(promises);
+        const namesData = [];
+
+        for (const names of namesList) {
+            for (const name of names) {
+                if (!name.checked) continue;
+                const nameData = namesData.find(d => d.original === name.original && d.translated === name.translated);
+
+                if (!nameData) {
+                    namesData.push({
+                        original: name.original,
+                        translated: name.translated,
+                        count: 1
+                    });
+                } else {
+                    nameData.count++;
+                }
+            }
+        }
+
+        const commonNames = namesData.filter(d => d.count >= 5);
+
+        for (const name of commonNames) {
+            delete name.count;
+            this.addGlobal(name);
+        }
     }
 }
 

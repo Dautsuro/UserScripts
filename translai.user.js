@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.3.7
+// @version      1.3.8
 // @description  -
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -300,6 +300,7 @@ class NameManager {
         if (!name || this.isGlobal(name)) return;
 
         this.removeName(name);
+        delete name.checked;
         this.globalNames.push(name);
         this.save();
         this.editName(name);

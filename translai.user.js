@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.4.0
+// @version      1.5.0
 // @description  -
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -193,11 +193,10 @@ class Chapter {
             content = content.replace(new RegExp(`(?!<span[^>]*>)${name.translated}(?![^<]*</span>)`, 'g'), () => {
                 const subState = NameManager.getSubState(name);
                 let color = Color.RED;
-                if (subState === SubState.PARTIAL) color = Color.ORANGE;
-                if (subState === SubState.FULL) color = Color.GREEN;
+                if (subState !== SubState.NONE) color = Color.ORANGE;
                 if (name.checked) color = Color.BLUE;
                 if (NameManager.isGlobal(name)) color = Color.GREEN;
-                return `<span style="background-color: ${color}; user-select: all;" data-original="${name.original}">${name.translated}${subState !== SubState.NONE ? '*' : ''}</span>`;
+                return `<span style="background-color: ${color}; user-select: all;" data-original="${name.original}">${name.translated}${subState === SubState.PARTIAL ? '*' : ''}</span>`;
             });
         }
 
@@ -391,7 +390,7 @@ class NameManager {
 
         for (const name of this.globalNames) {
             if (name.original.includes(subName.original)) {
-                if (name.translated.includes(subName.translated)) return SubState.FULL;
+                if (name.translated.includes(subName.translated) && name.translated !== subName.translated) return SubState.FULL;
                 isPartial = true;
             }
         }

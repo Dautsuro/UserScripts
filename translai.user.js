@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.5.0
+// @version      1.6.0
 // @description  -
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -332,6 +332,14 @@ class NameManager {
     static copyName() {
         const name = this.getSelectedName();
         if (!name) return;
+        const subState = this.getSubState(name);
+
+        if (subState !== SubState.NONE) {
+            const parentName = this.getParentName(name);
+            GM.setClipboard(`${parentName.original}: ${parentName.translated}\n${name.original}`, 'text');
+            return;
+        }
+
         GM.setClipboard(name.original, 'text');
     }
 
@@ -396,6 +404,14 @@ class NameManager {
         }
 
         return isPartial ? SubState.PARTIAL : SubState.NONE;
+    }
+
+    static getParentName(subName) {
+        for (const name of this.globalNames) {
+            if (name.original.includes(subName.original)) {
+                return name;
+            }
+        }
     }
 
     static async checkCommonNames() {
@@ -489,7 +505,7 @@ if (url.includes('/book/')) {
     const synopsisElement = document.querySelector('.navtxt > p:nth-child(1)');
     const novel = new Novel(titleElement, synopsisElement);
     novel.translate();
-} else if (url.includes('/txt')) {
+} else if (url.includes('/txt/')) {
     document.querySelector('h1.hide720')?.remove();
     document.querySelector('.txtinfo')?.remove();
     document.querySelector('.tools')?.remove();

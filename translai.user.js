@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.3.8
+// @version      1.3.9
 // @description  -
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -381,7 +381,7 @@ class NameManager {
     }
 
     static getSubState(subName) {
-        if (this.isGlobal(subName)) return SubState.NONE;
+        if (this.isGlobal(subName) || subName.checked) return SubState.NONE;
         let isPartial = false;
 
         for (const name of this.globalNames) {

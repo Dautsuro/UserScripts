@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.0.6
+// @version      1.1.0
 // @description  TranslAI is a userscript that auto-translates Chinese web novels on 69shuba.com into English using Google's Gemini API. It translates titles, synopses, and chapters, highlights character names with contextual coloring, and allows custom name editing, saving, and management for consistent translation across chapters.
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -9,6 +9,7 @@
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=69shuba.com
 // @grant        GM.getValue
 // @grant        GM.setValue
+// @grant        GM.listValues
 // ==/UserScript==
 
 const Color = {
@@ -173,6 +174,7 @@ class Chapter {
             log('✅ Names are extracted');
             NameManager.addNames(names);
             this.refreshDOM();
+            NameManager.checkCommons();
         } catch (err) {
             handleError('Error while extracting names', err);
         }
@@ -257,8 +259,8 @@ class NameManager {
         GM.setValue(`setting:${Novel.id}`, this.setting);
     }
 
-    static addGlobal() {
-        const name = this.getSelectedName();
+    static addGlobal(name) {
+        if (!name.original) name = this.getSelectedName();
         if (!name || this.isGlobal(name)) return;
 
         this.localNames = this.localNames.filter(n => n.original !== name.original);
@@ -410,6 +412,31 @@ class NameManager {
 
     static getGlobalNames() {
         return [...this.globalNames.filter(n => n.setting === this.setting)];
+    }
+
+    static async checkCommons() {
+        let keys = await GM.listValues();
+        keys = keys.filter(k => k.startsWith('names:'));
+        let namesList = keys.map(k => GM.getValue(k));
+        namesList = await Promise.all(namesList);
+        const namesData = {};
+
+        for (let names of namesList) {
+            names = names.filter(n => n.setting);
+
+            for (const name of names) {
+                if (!namesData[name.original]) namesData[name.original] = { obj: name, counter: 0 };
+                namesData[name.original].counter++;
+            }
+        }
+
+        for (const name in namesData) {
+            if (namesData[name].counter >= 3) {
+                this.addGlobal(namesData[name].obj);
+            }
+        }
+
+        this.save();
     }
 }
 

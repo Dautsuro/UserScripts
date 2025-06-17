@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.1.1
+// @version      1.1.2
 // @description  TranslAI is a userscript that auto-translates Chinese web novels on 69shuba.com into English using Google's Gemini API. It translates titles, synopses, and chapters, highlights character names with contextual coloring, and allows custom name editing, saving, and management for consistent translation across chapters.
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -176,6 +176,12 @@ class Chapter {
             this.refreshDOM();
             NameManager.checkCommons();
         } catch (err) {
+            if (err.message.includes('PROHIBITED_CONTENT')) {
+                this.refreshDOM();
+                NameManager.checkCommons();
+                return;
+            }
+
             handleError('Error while extracting names', err);
         }
     }

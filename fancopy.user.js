@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FanCopy
 // @namespace    https://github.com/Dautsuro
-// @version      1.1.0
+// @version      1.1.1
 // @description  Copy all infobox data into a formatted message ready for use.
 // @author       Dautsuro
 // @match        https://*.fandom.com/wiki/*
@@ -19,7 +19,7 @@ const WANTED_LABELS = [
 const buttonElement = document.createElement('button');
 buttonElement.innerText = '📋';
 buttonElement.addEventListener('click', () => {
-    const infoboxElement = document.querySelector('.portable-infobox');
+    const infoboxElement = document.querySelector('section.pi-group');
     const itemElements = infoboxElement.querySelectorAll('.pi-item');
     let chineseName;
     let englishNames = [];

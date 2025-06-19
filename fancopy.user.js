@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FanCopy
 // @namespace    https://github.com/Dautsuro
-// @version      1.1.4
+// @version      1.2.0
 // @description  Copy all infobox data into a formatted message ready for use.
 // @author       Dautsuro
 // @match        https://*.fandom.com/wiki/*
@@ -22,7 +22,9 @@ buttonElement.innerText = '📋';
 buttonElement.addEventListener('click', () => {
     const infoboxElement = document.querySelector('section.pi-group');
     const itemElements = infoboxElement.querySelectorAll('.pi-item');
-    let englishNames = [];
+    const titleElement = document.querySelector('.pi-title') || document.querySelector('.mw-page-title-main');
+    const title = titleElement.innerText.trim();
+    let englishNames = [title];
 
     for (const itemElement of itemElements) {
         const labelElement = itemElement.querySelector('.pi-data-label');

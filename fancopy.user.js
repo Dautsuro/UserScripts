@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FanCopy
 // @namespace    https://github.com/Dautsuro
-// @version      1.1.3
+// @version      1.1.4
 // @description  Copy all infobox data into a formatted message ready for use.
 // @author       Dautsuro
 // @match        https://*.fandom.com/wiki/*
@@ -18,10 +18,10 @@ const WANTED_LABELS = [
 
 const buttonElement = document.createElement('button');
 buttonElement.innerText = '📋';
+
 buttonElement.addEventListener('click', () => {
     const infoboxElement = document.querySelector('section.pi-group');
     const itemElements = infoboxElement.querySelectorAll('.pi-item');
-    let chineseName;
     let englishNames = [];
 
     for (const itemElement of itemElements) {
@@ -31,8 +31,6 @@ buttonElement.addEventListener('click', () => {
 
         const label = labelElement.innerText.trim();
         const value = valueElement.innerText.trim();
-
-        if (label.toLowerCase() === 'chinese') chineseName = value;
         if (!WANTED_LABELS.includes(label.toLowerCase())) continue;
 
         const names = value.split('\n')
@@ -44,8 +42,7 @@ buttonElement.addEventListener('click', () => {
     }
 
     englishNames = Array.from(new Set(englishNames));
-    if (!chineseName) return;
-    navigator.clipboard.writeText(`${chineseName}\n${englishNames.join('\n')}`);
+    navigator.clipboard.writeText(englishNames.join('\n'));
 });
 
 Object.assign(buttonElement.style, {

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FanCopy
 // @namespace    https://github.com/Dautsuro
-// @version      1.1.2
+// @version      1.1.3
 // @description  Copy all infobox data into a formatted message ready for use.
 // @author       Dautsuro
 // @match        https://*.fandom.com/wiki/*
@@ -38,7 +38,7 @@ buttonElement.addEventListener('click', () => {
         const names = value.split('\n')
             .filter(n => n.length > 0)
             .map(name => name.replace(/\(.*?\)/g, '').trim())
-            .filter(name => !/[\u4e00-\u9fff]/.test(name) && name.length > 0);
+            .map(name => name.replace(/[\u4e00-\u9fff]/g, '').trim());
 
         englishNames.push(...names);
     }

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FanCopy
 // @namespace    https://github.com/Dautsuro
-// @version      1.1.1
+// @version      1.1.2
 // @description  Copy all infobox data into a formatted message ready for use.
 // @author       Dautsuro
 // @match        https://*.fandom.com/wiki/*
@@ -10,10 +10,10 @@
 // ==/UserScript==
 
 const WANTED_LABELS = [
-    'Name',
-    'Aliases',
-    'Title(s)',
-    'Also Known As',
+    'name',
+    'aliases',
+    'title(s)',
+    'also known as',
 ];
 
 const buttonElement = document.createElement('button');
@@ -32,8 +32,8 @@ buttonElement.addEventListener('click', () => {
         const label = labelElement.innerText.trim();
         const value = valueElement.innerText.trim();
 
-        if (label === 'Chinese') chineseName = value;
-        if (!WANTED_LABELS.includes(label)) continue;
+        if (label.toLowerCase() === 'chinese') chineseName = value;
+        if (!WANTED_LABELS.includes(label.toLowerCase())) continue;
 
         const names = value.split('\n')
             .filter(n => n.length > 0)

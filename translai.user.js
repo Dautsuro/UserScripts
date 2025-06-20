@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TranslAI
 // @namespace    https://github.com/Dautsuro
-// @version      1.2.0
+// @version      1.2.1
 // @description  TranslAI is a userscript that auto-translates Chinese web novels on 69shuba.com into English using Google's Gemini API. It translates titles, synopses, and chapters, highlights character names with contextual coloring, and allows custom name editing, saving, and management for consistent translation across chapters.
 // @author       Dautsuro
 // @match        https://www.69shuba.com/book/*.htm
@@ -98,8 +98,8 @@ class Novel {
         const title = this.titleElement.innerText;
         const synopsis = this.synopsisElement.innerText;
 
-        const titleInstruction = 'Translate the provided Chinese novel title into English. Respond only with the translated title.';
-        const synopsisInstruction = 'Translate the provided Chinese novel synopsis into English. Respond only with the translated synopsis.';
+        const titleInstruction = 'You are an expert Chinese-to-English translator. You are helping me translating a Chinese novel title. Please provide only the translated title with no additional explanation or text.';
+        const synopsisInstruction = 'You are an expert Chinese-to-English translator. You are helping me translating a Chinese novel synopsis. Please provide only the translated synopsis with no additional explanation or text.';
 
         Gemini.request(titleInstruction, title)
             .then(translatedTitle => this.titleElement.innerText = translatedTitle)
@@ -131,7 +131,7 @@ class Chapter {
             this.content = [title, ...lines].join('\n');
         }
 
-        let instruction = 'Translate the provided Chinese novel chapter into English. Respond only with the translated chapter.';
+        let instruction = 'You are an expert Chinese-to-English translator. You are helping me translating a Chinese novel chapter. Please provide only the translated chapter with no additional explanation or text.';
 
         if (NameManager.setting !== '*') {
             instruction += ` For information, this is a ${NameManager.setting} fanfiction.`;
@@ -155,7 +155,7 @@ class Chapter {
     }
 
     async extractNames() {
-        const instruction = 'Extract all proper nouns from the Chinese chapter and find their translation in the English chapter. Create a JSON array in this format: [{"original":"Chinese name","translated":"English name"}]. Respond only with the JSON array.';
+        const instruction = 'You are an expert JSON data extractor. Extract all proper nouns from the Chinese chapter and find their translation in the English chapter. Create a JSON array in this format: [{"original":"Chinese name","translated":"English name"}]. Please provide only the JSON array with no additional explanation or text.';
 
         const input = `Chinese chapter:
         ${this.content}

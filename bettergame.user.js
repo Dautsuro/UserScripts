@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         BetterGame
-// @version      1.0.0
+// @version      1.1.0
 // @match        file:///C:/Games/*/*/*
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -79,6 +79,9 @@ function processImages() {
         image.style.outline = image.seen ? '3px solid green' : '3px solid orange';
         image.style.outlineOffset = '-3px';
 
+        image.seen = true;
+        GM_setValue(imageId, image.seen);
+
         image.addEventListener('click', () => {
             if (!image.isFullscreen) {
                 image.isFullscreen = true;
@@ -87,8 +90,6 @@ function processImages() {
             } else {
                 image.isFullscreen = false;
                 document.exitFullscreen();
-                image.seen = true;
-                GM_setValue(imageId, image.seen);
                 image.style.outline = image.seen ? '3px solid green' : '3px solid orange';
             }
         });

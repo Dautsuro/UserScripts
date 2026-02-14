@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WebNovel Filter
 // @namespace   https://github.com/Dautsuro/userscripts
-// @version     2.0
+// @version     2.1
 // @description Filters webnovel.com fanfic listings by rating and review count, color-coding books based on quality thresholds
 // @icon        https://www.google.com/s2/favicons?sz=64&domain=webnovel.com
 // @grant       GM_setValue
@@ -34,6 +34,10 @@
     const DEFAULT_SETTINGS = {
         thresholds: DEFAULT_THRESHOLDS,
         hideRefused: false,
+        requiredTags: [],
+        blockedTags: [],
+        minChapters: 0,
+        maxChapters: 0,
     };
 
     const Status = Object.freeze({
@@ -243,6 +247,24 @@
         #wf-save-btn:hover { background: #16a34a; }
         #wf-reset-btn  { background: #334155; color: #cbd5e1; }
         #wf-reset-btn:hover { background: #475569; }
+
+        .wf-section-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            margin: 14px 0 6px;
+        }
+        .wf-threshold-row input[type="text"] {
+            flex: 1;
+            padding: 4px 6px;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-size: 13px;
+        }
     `);
 
     // ── Settings persistence ───────────────────────────────────────────────────
@@ -255,6 +277,11 @@
             if (t.maxReviews === null || t.maxReviews === 'Infinity') t.maxReviews = Infinity;
             if (t.minRating === null || t.minRating === 'Infinity') t.minRating = Infinity;
         }
+        // Backward compat: add v2.1 fields if missing
+        if (!Array.isArray(saved.requiredTags)) saved.requiredTags = [];
+        if (!Array.isArray(saved.blockedTags)) saved.blockedTags = [];
+        if (saved.minChapters == null) saved.minChapters = 0;
+        if (saved.maxChapters == null) saved.maxChapters = 0;
         return saved;
     }
 
@@ -334,6 +361,10 @@
 
     // ── Settings panel UI ──────────────────────────────────────────────────────
 
+    function parseTags(str) {
+        return str.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    }
+
     function buildSettingsPanel() {
         // Gear button
         const gear = document.createElement('button');
@@ -359,6 +390,32 @@
                            placeholder="refuse all">
                 </div>
             `).join('')}
+            <div class="wf-section-label">Tag Filters</div>
+            <div class="wf-threshold-row">
+                <label>Required tags</label>
+                <input type="text" id="wf-required-tags"
+                       value="${settings.requiredTags.join(', ')}"
+                       placeholder="e.g. action, adventure">
+            </div>
+            <div class="wf-threshold-row">
+                <label>Blocked tags</label>
+                <input type="text" id="wf-blocked-tags"
+                       value="${settings.blockedTags.join(', ')}"
+                       placeholder="e.g. harem, mtl">
+            </div>
+            <div class="wf-section-label">Chapter Count</div>
+            <div class="wf-threshold-row">
+                <label>Min chapters</label>
+                <input type="number" id="wf-min-chapters" min="0"
+                       value="${settings.minChapters || ''}"
+                       placeholder="0">
+            </div>
+            <div class="wf-threshold-row">
+                <label>Max chapters</label>
+                <input type="number" id="wf-max-chapters" min="0"
+                       value="${settings.maxChapters || ''}"
+                       placeholder="0">
+            </div>
             <div class="wf-toggle-row">
                 <label>Hide refused books entirely</label>
                 <input type="checkbox" id="wf-hide-toggle" ${settings.hideRefused ? 'checked' : ''}>
@@ -383,12 +440,21 @@
         // Save
         panel.querySelector('#wf-save-btn').addEventListener('click', () => {
             const newSettings = structuredClone(settings);
-            panel.querySelectorAll('input[type="number"]').forEach((input) => {
+            panel.querySelectorAll('input[data-idx]').forEach((input) => {
                 const idx = parseInt(input.dataset.idx);
                 const val = input.value.trim();
                 newSettings.thresholds[idx].minRating = val === '' ? Infinity : parseFloat(val);
             });
             newSettings.hideRefused = panel.querySelector('#wf-hide-toggle').checked;
+
+            // Tag filters
+            newSettings.requiredTags = parseTags(panel.querySelector('#wf-required-tags').value);
+            newSettings.blockedTags = parseTags(panel.querySelector('#wf-blocked-tags').value);
+
+            // Chapter count
+            newSettings.minChapters = parseInt(panel.querySelector('#wf-min-chapters').value) || 0;
+            newSettings.maxChapters = parseInt(panel.querySelector('#wf-max-chapters').value) || 0;
+
             saveSettings(newSettings);
             refilterAll();
             panel.classList.remove('wf-open');
@@ -398,12 +464,16 @@
         panel.querySelector('#wf-reset-btn').addEventListener('click', () => {
             saveSettings(structuredClone(DEFAULT_SETTINGS));
             // Update UI inputs
-            panel.querySelectorAll('input[type="number"]').forEach((input) => {
+            panel.querySelectorAll('input[data-idx]').forEach((input) => {
                 const idx = parseInt(input.dataset.idx);
                 const val = DEFAULT_SETTINGS.thresholds[idx].minRating;
                 input.value = val === Infinity ? '' : val;
             });
             panel.querySelector('#wf-hide-toggle').checked = DEFAULT_SETTINGS.hideRefused;
+            panel.querySelector('#wf-required-tags').value = '';
+            panel.querySelector('#wf-blocked-tags').value = '';
+            panel.querySelector('#wf-min-chapters').value = '';
+            panel.querySelector('#wf-max-chapters').value = '';
             refilterAll();
         });
     }
@@ -445,9 +515,17 @@
         } else {
             const r = bookData.rating.toFixed(2);
             const n = bookData.reviewCount;
-            badge.textContent = `\u2605 ${r} \u00b7 ${n} reviews`;
+            const ch = bookData.chapterCount || 0;
+            badge.textContent = `\u2605 ${r} \u00b7 ${n} reviews${ch > 0 ? ` \u00b7 ${ch} ch` : ''}`;
         }
         bookEl.appendChild(badge);
+    }
+
+    function getBookTags(bookEl) {
+        const tagEls = bookEl.querySelectorAll('a[href*="/tags/"]');
+        return [...tagEls].map(a =>
+            a.textContent.trim().toLowerCase().replace(/\s+(stories|novel)$/i, '')
+        );
     }
 
     function filterBook(bookEl, bookData) {
@@ -462,6 +540,44 @@
                     return;
                 }
                 break;
+            }
+        }
+
+        // Tag filters (card DOM — always available)
+        const tags = getBookTags(bookEl);
+        if (settings.requiredTags.length > 0) {
+            const hasRequired = settings.requiredTags.some(req =>
+                tags.some(tag => tag === req)
+            );
+            if (!hasRequired) {
+                setBookStatus(bookEl, Status.REFUSED);
+                injectBadge(bookEl, bookData, Status.REFUSED);
+                return;
+            }
+        }
+        if (settings.blockedTags.length > 0) {
+            const hasBlocked = settings.blockedTags.some(blk =>
+                tags.some(tag => tag === blk)
+            );
+            if (hasBlocked) {
+                setBookStatus(bookEl, Status.REFUSED);
+                injectBadge(bookEl, bookData, Status.REFUSED);
+                return;
+            }
+        }
+
+        // Chapter count filters (only if data has been fetched)
+        const ch = bookData.chapterCount || 0;
+        if (ch > 0) {
+            if (settings.minChapters > 0 && ch < settings.minChapters) {
+                setBookStatus(bookEl, Status.REFUSED);
+                injectBadge(bookEl, bookData, Status.REFUSED);
+                return;
+            }
+            if (settings.maxChapters > 0 && ch > settings.maxChapters) {
+                setBookStatus(bookEl, Status.REFUSED);
+                injectBadge(bookEl, bookData, Status.REFUSED);
+                return;
             }
         }
 
@@ -545,9 +661,13 @@
                 const reviewText = scoreEl?.querySelector('small')?.textContent || '';
                 const bookReviewCount = parseInt(reviewText.match(/\d+/)?.[0]) || 0;
 
+                const chapterMatch = doc.body.textContent.match(/(\d[\d,]*)\s*Chapters?/i);
+                const chapterCount = chapterMatch ? parseInt(chapterMatch[1].replace(/,/g, '')) : 0;
+
                 const bookData = {
                     rating: bookRating,
                     reviewCount: bookReviewCount,
+                    chapterCount,
                     timestamp: Date.now(),
                 };
 

@@ -546,10 +546,10 @@
         // Tag filters (card DOM — always available)
         const tags = getBookTags(bookEl);
         if (settings.requiredTags.length > 0) {
-            const hasRequired = settings.requiredTags.some(req =>
+            const hasAllRequired = settings.requiredTags.every(req =>
                 tags.some(tag => tag === req)
             );
-            if (!hasRequired) {
+            if (!hasAllRequired) {
                 setBookStatus(bookEl, Status.REFUSED);
                 injectBadge(bookEl, bookData, Status.REFUSED);
                 return;

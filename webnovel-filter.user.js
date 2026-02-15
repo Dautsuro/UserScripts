@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WebNovel Filter
 // @namespace   https://github.com/Dautsuro/userscripts
-// @version     2.1
+// @version     2.2
 // @description Filters webnovel.com fanfic listings by rating and review count, color-coding books based on quality thresholds
 // @icon        https://www.google.com/s2/favicons?sz=64&domain=webnovel.com
 // @grant       GM_setValue
@@ -28,7 +28,7 @@
         { maxReviews: 20, minRating: 4.5 },
         { maxReviews: 50, minRating: 4.2 },
         { maxReviews: 200, minRating: 3.8 },
-        { maxReviews: Infinity, minRating: 3.5 },
+        { maxReviews: Infinity, minRating: 3.8 },
     ];
 
     const DEFAULT_SETTINGS = {
@@ -516,7 +516,12 @@
             const r = bookData.rating.toFixed(2);
             const n = bookData.reviewCount;
             const ch = bookData.chapterCount || 0;
-            badge.textContent = `\u2605 ${r} \u00b7 ${n} reviews${ch > 0 ? ` \u00b7 ${ch} ch` : ''}`;
+            let extras = '';
+            if (bookData.analysis) {
+                if (bookData.analysis.stdDev > 1.5) extras += '\u26a1';
+                if (bookData.analysis.velocity >= 5) extras += '\ud83d\udd25';
+            }
+            badge.textContent = `\u2605 ${r} \u00b7 ${n} reviews${ch > 0 ? ` \u00b7 ${ch} ch` : ''}${extras ? ' ' + extras : ''}`;
         }
         bookEl.appendChild(badge);
     }
@@ -529,12 +534,21 @@
     }
 
     function filterBook(bookEl, bookData) {
-        const { rating, reviewCount } = bookData;
+        const { rating, reviewCount, analysis } = bookData;
         const thresholds = settings.thresholds;
 
         for (const tier of thresholds) {
             if (reviewCount < tier.maxReviews) {
-                if (tier.minRating === Infinity || rating < tier.minRating) {
+                let effectiveMinRating = tier.minRating;
+
+                if (effectiveMinRating !== Infinity && analysis) {
+                    if (analysis.recency > 0.7) effectiveMinRating -= 0.1;
+                    if (analysis.velocity >= 5) effectiveMinRating -= 0.1;
+                    if (analysis.stdDev > 1.5) effectiveMinRating += 0.2;
+                    effectiveMinRating = Math.max(3.5, Math.min(tier.minRating + 0.3, effectiveMinRating));
+                }
+
+                if (effectiveMinRating === Infinity || rating < effectiveMinRating) {
                     setBookStatus(bookEl, Status.REFUSED);
                     injectBadge(bookEl, bookData, Status.REFUSED);
                     return;
@@ -664,10 +678,14 @@
                 const chapterMatch = doc.body.textContent.match(/(\d[\d,]*)\s*Chapters?/i);
                 const chapterCount = chapterMatch ? parseInt(chapterMatch[1].replace(/,/g, '')) : 0;
 
+                const reviews = parseWebNovelReviews(doc);
+                const analysis = analyzeReviews(reviews);
+
                 const bookData = {
                     rating: bookRating,
                     reviewCount: bookReviewCount,
                     chapterCount,
+                    analysis,
                     timestamp: Date.now(),
                 };
 
@@ -686,6 +704,56 @@
 
     function delay(ms) {
         return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    // ── Review analysis (extras) ────────────────────────────────────────────────
+
+    function analyzeReviews(reviews) {
+        if (reviews.length === 0) return null;
+
+        const now = Date.now();
+        const SIX_MONTHS = 180 * 24 * 60 * 60 * 1000;
+        const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+
+        const recentCount = reviews.filter(r => (now - r.dateMs) < SIX_MONTHS).length;
+        const recency = recentCount / reviews.length;
+
+        const velocity = reviews.filter(r => (now - r.dateMs) < THIRTY_DAYS).length;
+
+        const mean = reviews.reduce((s, r) => s + r.stars, 0) / reviews.length;
+        const variance = reviews.reduce((s, r) => s + (r.stars - mean) ** 2, 0) / reviews.length;
+        const stdDev = Math.sqrt(variance);
+
+        return { recency, velocity, stdDev };
+    }
+
+    function parseRelativeDate(text) {
+        const now = Date.now();
+        const t = text.trim().toLowerCase();
+        const num = parseInt(t) || 1;
+        if (t.includes('yr') || t.includes('year')) return now - num * 365 * 24 * 60 * 60 * 1000;
+        if (t.includes('mth') || t.includes('month')) return now - num * 30 * 24 * 60 * 60 * 1000;
+        if (t.includes('wk') || t.includes('week')) return now - num * 7 * 24 * 60 * 60 * 1000;
+        if (t.includes('day') || t.includes('d ago')) return now - num * 24 * 60 * 60 * 1000;
+        if (t.includes('hr') || t.includes('hour') || t.includes('min')) return now;
+        return now - 365 * 24 * 60 * 60 * 1000; // fallback: 1 year ago
+    }
+
+    function parseWebNovelReviews(doc) {
+        const reviews = [];
+        const reviewEls = doc.querySelectorAll('.j_book_review');
+        for (const el of reviewEls) {
+            const starEls = el.querySelectorAll('.g_star ._on');
+            const stars = starEls.length;
+            if (stars === 0) continue;
+
+            const footerEl = el.querySelector('.m-comment-ft');
+            const dateText = footerEl?.textContent || '';
+            const dateMs = parseRelativeDate(dateText);
+
+            reviews.push({ stars, dateMs });
+        }
+        return reviews;
     }
 
     // ── Init ───────────────────────────────────────────────────────────────────

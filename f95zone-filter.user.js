@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        F95zone Game Filter
 // @namespace   https://github.com/Dautsuro/userscripts
-// @version     1.0
+// @version     1.1
 // @description Filters f95zone game listings by rating and review count, color-coding tiles based on quality thresholds
 // @icon        https://www.google.com/s2/favicons?sz=64&domain=f95zone.to
 // @grant       GM_setValue
@@ -22,11 +22,11 @@
     const DEBOUNCE_MS = 300;
 
     const DEFAULT_THRESHOLDS = [
-        { maxReviews: 10,       minRating: Infinity },  // < 10 reviews → always refuse
-        { maxReviews: 20,       minRating: 4.5 },
-        { maxReviews: 50,       minRating: 4.2 },
-        { maxReviews: 200,      minRating: 3.8 },
-        { maxReviews: Infinity, minRating: 3.5 },
+        { maxReviews: 5,        minRating: Infinity },  // < 5 reviews → always refuse
+        { maxReviews: 10,       minRating: 4.5 },
+        { maxReviews: 25,       minRating: 4.2 },
+        { maxReviews: 100,      minRating: 3.8 },
+        { maxReviews: Infinity, minRating: 3.8 },
     ];
 
     const DEFAULT_SETTINGS = {
@@ -236,11 +236,11 @@
         panel.id = 'wf-settings-panel';
 
         const thresholdLabels = [
+            '< 5 reviews',
             '< 10 reviews',
-            '< 20 reviews',
-            '< 50 reviews',
-            '< 200 reviews',
-            '\u2265 200 reviews',
+            '< 25 reviews',
+            '< 100 reviews',
+            '\u2265 100 reviews',
         ];
 
         panel.innerHTML = `
@@ -298,6 +298,45 @@
         });
     }
 
+    // ── Review analysis (extras) ────────────────────────────────────────────────
+
+    function analyzeReviews(reviews) {
+        if (reviews.length === 0) return null;
+
+        const now = Date.now();
+        const SIX_MONTHS = 180 * 24 * 60 * 60 * 1000;
+        const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+
+        const recentCount = reviews.filter(r => (now - r.dateMs) < SIX_MONTHS).length;
+        const recency = recentCount / reviews.length;
+
+        const velocity = reviews.filter(r => (now - r.dateMs) < THIRTY_DAYS).length;
+
+        const mean = reviews.reduce((s, r) => s + r.stars, 0) / reviews.length;
+        const variance = reviews.reduce((s, r) => s + (r.stars - mean) ** 2, 0) / reviews.length;
+        const stdDev = Math.sqrt(variance);
+
+        return { recency, velocity, stdDev };
+    }
+
+    function parseF95Reviews(html) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const reviews = [];
+        const reviewEls = doc.querySelectorAll('.br-review');
+        for (const el of reviewEls) {
+            const fullStars = el.querySelectorAll('.ratingStars-star--full');
+            const stars = fullStars.length;
+            if (stars === 0) continue;
+
+            const timeEl = el.querySelector('time[datetime]');
+            const dateMs = timeEl ? new Date(timeEl.getAttribute('datetime')).getTime() : Date.now();
+
+            reviews.push({ stars, dateMs });
+        }
+        return reviews;
+    }
+
     // ── Core logic ─────────────────────────────────────────────────────────────
 
     function getThreadUrl(tile) {
@@ -342,13 +381,18 @@
         } else {
             const r = data.rating != null ? data.rating.toFixed(2) : '?';
             const n = data.reviewCount ?? 0;
-            badge.textContent = `\u2605 ${r} \u00b7 ${n} reviews`;
+            let extras = '';
+            if (data.analysis) {
+                if (data.analysis.stdDev > 1.5) extras += '\u26a1';
+                if (data.analysis.velocity >= 5) extras += '\ud83d\udd25';
+            }
+            badge.textContent = `\u2605 ${r} \u00b7 ${n} reviews${extras ? ' ' + extras : ''}`;
         }
         tile.appendChild(badge);
     }
 
     function filterTile(tile, data) {
-        const { rating, reviewCount } = data;
+        const { rating, reviewCount, analysis } = data;
 
         // If no rating data at all, refuse
         if (rating == null) {
@@ -359,7 +403,16 @@
 
         for (const tier of settings.thresholds) {
             if (reviewCount < tier.maxReviews) {
-                if (tier.minRating === Infinity || rating < tier.minRating) {
+                let effectiveMinRating = tier.minRating;
+
+                if (effectiveMinRating !== Infinity && analysis) {
+                    if (analysis.recency > 0.7) effectiveMinRating -= 0.1;
+                    if (analysis.velocity >= 5) effectiveMinRating -= 0.1;
+                    if (analysis.stdDev > 1.5) effectiveMinRating += 0.2;
+                    effectiveMinRating = Math.max(3.5, Math.min(tier.minRating + 0.3, effectiveMinRating));
+                }
+
+                if (effectiveMinRating === Infinity || rating < effectiveMinRating) {
                     setTileStatus(tile, Status.REFUSED);
                     injectBadge(tile, data, Status.REFUSED);
                     return;
@@ -435,9 +488,18 @@
                         ? parseInt(reviewMatch[1].replace(/,/g, ''))
                         : 0;
 
-                    const data = { rating, reviewCount, timestamp: Date.now() };
-                    GM_setValue(threadUrl, data);
-                    filterTile(tile, data);
+                    // Fetch reviews page for analysis
+                    const reviewsUrl = threadUrl.replace(/\/?$/, '/') + 'br-reviews/';
+                    return fetch(reviewsUrl)
+                        .then(res => res.text())
+                        .then(reviewsHtml => {
+                            const reviews = parseF95Reviews(reviewsHtml);
+                            const analysis = analyzeReviews(reviews);
+
+                            const data = { rating, reviewCount, analysis, timestamp: Date.now() };
+                            GM_setValue(threadUrl, data);
+                            filterTile(tile, data);
+                        });
                 })
                 .catch(err => {
                     console.warn('[F95zone Filter] Fetch error for', threadUrl, err);

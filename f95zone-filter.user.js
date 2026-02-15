@@ -474,37 +474,56 @@
         }
     }
 
-    // ── Parallel fetcher ──────────────────────────────────────────────────────
+    // ── Sequential fetcher ─────────────────────────────────────────────────────
+
+    const FETCH_DELAY = 1000;
+    let fetching = false;
+    const fetchQueue = [];
 
     function fetchAll(items) {
-        for (const { tile, threadUrl } of items) {
-            fetch(threadUrl)
-                .then(res => res.text())
-                .then(html => {
-                    const rating = getRatingFromCard(tile);
+        fetchQueue.push(...items);
+        if (!fetching) processFetchQueue();
+    }
 
-                    const reviewMatch = html.match(/Reviews\s*\((\d[\d,]*)\)/i);
-                    const reviewCount = reviewMatch
-                        ? parseInt(reviewMatch[1].replace(/,/g, ''))
-                        : 0;
+    async function processFetchQueue() {
+        fetching = true;
 
-                    // Fetch reviews page for analysis
-                    const reviewsUrl = threadUrl.replace(/\/?$/, '/') + 'br-reviews/';
-                    return fetch(reviewsUrl)
-                        .then(res => res.text())
-                        .then(reviewsHtml => {
-                            const reviews = parseF95Reviews(reviewsHtml);
-                            const analysis = analyzeReviews(reviews);
+        while (fetchQueue.length > 0) {
+            const { tile, threadUrl } = fetchQueue.shift();
 
-                            const data = { rating, reviewCount, analysis, timestamp: Date.now() };
-                            GM_setValue(threadUrl, data);
-                            filterTile(tile, data);
-                        });
-                })
-                .catch(err => {
-                    console.warn('[F95zone Filter] Fetch error for', threadUrl, err);
-                });
+            try {
+                const res = await fetch(threadUrl);
+                const html = await res.text();
+
+                const rating = getRatingFromCard(tile);
+
+                const reviewMatch = html.match(/Reviews\s*\((\d[\d,]*)\)/i);
+                const reviewCount = reviewMatch
+                    ? parseInt(reviewMatch[1].replace(/,/g, ''))
+                    : 0;
+
+                await delay(FETCH_DELAY);
+                const reviewsUrl = threadUrl.replace(/\/?$/, '/') + 'br-reviews/';
+                const reviewsRes = await fetch(reviewsUrl);
+                const reviewsHtml = await reviewsRes.text();
+                const reviews = parseF95Reviews(reviewsHtml);
+                const analysis = analyzeReviews(reviews);
+
+                const data = { rating, reviewCount, analysis, timestamp: Date.now() };
+                GM_setValue(threadUrl, data);
+                filterTile(tile, data);
+            } catch (err) {
+                console.warn('[F95zone Filter] Fetch error for', threadUrl, err);
+            }
+
+            await delay(FETCH_DELAY);
         }
+
+        fetching = false;
+    }
+
+    function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     // ── Init ───────────────────────────────────────────────────────────────────

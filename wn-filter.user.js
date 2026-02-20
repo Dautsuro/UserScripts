@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         WN Filter
 // @namespace    https://github.com/Dautsuro/userscripts
-// @version      1.0
+// @version      1.1
 // @description  Filters webnovel.com book listings by quality using statistical rating analysis
 // @author       Dautsuro
 // @match        https://www.webnovel.com/tags/*
+// @match        https://www.webnovel.com/search?keywords=*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=webnovel.com
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -44,6 +45,7 @@ const processQueueSet = new Set();
 const processedBooks = new Set();
 let scanTimer = null;
 const observer = new MutationObserver(debounceScan);
+let tagSettings = GM_getValue('wnf-tag-settings') ?? { include: [], exclude: [] };
 
 // ── Inverse normal CDF coefficients (Acklam approximation) ──────────────────
 
@@ -341,8 +343,229 @@ function injectStyles() {
             background: rgba(232, 168, 56, 0.92);
             color: #1a1a1a;
         }
+
+        .wnf-settings-btn {
+            position: fixed;
+            bottom: 18px;
+            left: 18px;
+            z-index: 9999;
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            background: #2c3e50;
+            color: #ecf0f1;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: background 0.2s;
+            line-height: 40px;
+            text-align: center;
+            padding: 0;
+        }
+        .wnf-settings-btn:hover { background: #34495e; }
+
+        .wnf-settings-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            background: rgba(0,0,0,0.5);
+            display: none;
+        }
+        .wnf-settings-backdrop.wnf-open { display: flex; align-items: center; justify-content: center; }
+
+        .wnf-settings-panel {
+            background: #1e1e2e;
+            color: #cdd6f4;
+            border-radius: 12px;
+            padding: 24px;
+            width: 420px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            font: 14px/1.5 system-ui, sans-serif;
+        }
+        .wnf-settings-panel h2 {
+            margin: 0 0 16px;
+            font-size: 16px;
+            color: #cba6f7;
+        }
+        .wnf-settings-panel h3 {
+            margin: 12px 0 6px;
+            font-size: 13px;
+            color: #a6adc8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .wnf-tag-input-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+        .wnf-tag-input-row input {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #45475a;
+            border-radius: 6px;
+            background: #313244;
+            color: #cdd6f4;
+            font-size: 13px;
+            outline: none;
+        }
+        .wnf-tag-input-row input:focus { border-color: #cba6f7; }
+
+        .wnf-tag-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            min-height: 28px;
+            margin-bottom: 8px;
+        }
+        .wnf-tag-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            cursor: default;
+        }
+        .wnf-tag-chip-include {
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+            border: 1px solid rgba(46, 204, 113, 0.4);
+        }
+        .wnf-tag-chip-exclude {
+            background: rgba(192, 57, 43, 0.2);
+            color: #e74c3c;
+            border: 1px solid rgba(192, 57, 43, 0.4);
+        }
+        .wnf-tag-chip button {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 0;
+            line-height: 1;
+            opacity: 0.7;
+        }
+        .wnf-tag-chip button:hover { opacity: 1; }
+
+        .wnf-settings-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        .wnf-settings-actions button {
+            padding: 6px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .wnf-btn-save {
+            background: #cba6f7;
+            color: #1e1e2e;
+            font-weight: 600;
+        }
+        .wnf-btn-save:hover { background: #b4befe; }
+        .wnf-btn-close {
+            background: #45475a;
+            color: #cdd6f4;
+        }
+        .wnf-btn-close:hover { background: #585b70; }
     `;
     document.head.appendChild(style);
+}
+
+// ── Settings UI ─────────────────────────────────────────────────────────────
+
+function createSettingsUI() {
+    const btn = document.createElement('button');
+    btn.className = 'wnf-settings-btn';
+    btn.textContent = '\u2699';
+    btn.title = 'WN Filter — Tag Settings';
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'wnf-settings-backdrop';
+    backdrop.innerHTML = `
+        <div class="wnf-settings-panel">
+            <h2>WN Filter \u2014 Tag Settings</h2>
+            <h3>Include tags (keep only books with at least one)</h3>
+            <div class="wnf-tag-input-row">
+                <input class="wnf-input-include" placeholder="Type a tag and press Enter">
+            </div>
+            <div class="wnf-tag-chips wnf-chips-include"></div>
+            <h3>Exclude tags (reject books with any of these)</h3>
+            <div class="wnf-tag-input-row">
+                <input class="wnf-input-exclude" placeholder="Type a tag and press Enter">
+            </div>
+            <div class="wnf-tag-chips wnf-chips-exclude"></div>
+            <div class="wnf-settings-actions">
+                <button class="wnf-btn-close">Close</button>
+                <button class="wnf-btn-save">Save</button>
+            </div>
+        </div>
+    `;
+
+    document.body.append(btn, backdrop);
+
+    // Working copies so we can discard on close
+    let draft = { include: [...tagSettings.include], exclude: [...tagSettings.exclude] };
+
+    function renderChips(type) {
+        const container = backdrop.querySelector(`.wnf-chips-${type}`);
+        container.innerHTML = '';
+        for (const tag of draft[type]) {
+            const chip = document.createElement('span');
+            chip.className = `wnf-tag-chip wnf-tag-chip-${type}`;
+            chip.innerHTML = `${tag} <button data-tag="${tag}">\u2715</button>`;
+            chip.querySelector('button').addEventListener('click', () => {
+                draft[type] = draft[type].filter(t => t !== tag);
+                renderChips(type);
+            });
+            container.appendChild(chip);
+        }
+    }
+
+    function openPanel() {
+        draft = { include: [...tagSettings.include], exclude: [...tagSettings.exclude] };
+        renderChips('include');
+        renderChips('exclude');
+        backdrop.classList.add('wnf-open');
+    }
+
+    function closePanel() {
+        backdrop.classList.remove('wnf-open');
+    }
+
+    btn.addEventListener('click', openPanel);
+    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closePanel(); });
+    backdrop.querySelector('.wnf-btn-close').addEventListener('click', closePanel);
+
+    for (const type of ['include', 'exclude']) {
+        backdrop.querySelector(`.wnf-input-${type}`).addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            const val = e.target.value.trim().toLowerCase();
+            if (val && !draft[type].includes(val)) {
+                draft[type].push(val);
+                renderChips(type);
+            }
+            e.target.value = '';
+        });
+    }
+
+    backdrop.querySelector('.wnf-btn-save').addEventListener('click', () => {
+        tagSettings = { include: [...draft.include], exclude: [...draft.exclude] };
+        GM_setValue('wnf-tag-settings', tagSettings);
+        closePanel();
+        // Re-scan all books with new tag rules
+        processedBooks.clear();
+        scanBooks();
+    });
 }
 
 // ── DOM helpers ──────────────────────────────────────────────────────────────
@@ -381,7 +604,7 @@ function scanBooks() {
         if (!bookUrl || processedBooks.has(bookUrl)) continue;
 
         const bookData = GM_getValue(bookUrl);
-        if (bookData?.timestamp + CACHE_DURATION > Date.now()) {
+        if (bookData?.timestamp + CACHE_DURATION > Date.now() && Array.isArray(bookData.tags)) {
             filterBook(bookUrl, bookData);
             continue;
         }
@@ -428,7 +651,10 @@ async function fetchBookData(bookUrl) {
             10,
         ) || 0;
 
-    return { rating, reviewCount, timestamp: Date.now() };
+    const tags = [...doc.querySelectorAll('.m-tags .m-tag')]
+        .map(el => el.textContent.trim().replace(/^#\s*/, '').toLowerCase());
+
+    return { rating, reviewCount, tags, timestamp: Date.now() };
 }
 
 function filterBook(bookUrl, bookData) {
@@ -436,17 +662,33 @@ function filterBook(bookUrl, bookData) {
     const bookElement = getBookElement(bookUrl);
     if (!bookElement) return;
 
-    const keep = shouldKeepItem(bookData.rating, bookData.reviewCount);
+    let keep = shouldKeepItem(bookData.rating, bookData.reviewCount);
+    let tagRejected = false;
+    const bookTags = (bookData.tags ?? []).map(t => t.replace(/^#\s*/, ''));
 
-    bookElement.classList.remove('wnf-pending');
+    if (keep && tagSettings.include.length > 0) {
+        if (!bookTags.some(t => tagSettings.include.some(inc => inc === t))) {
+            keep = false;
+            tagRejected = true;
+        }
+    }
+    if (keep && tagSettings.exclude.length > 0) {
+        if (bookTags.some(t => tagSettings.exclude.some(exc => exc === t))) {
+            keep = false;
+            tagRejected = true;
+        }
+    }
+
+    bookElement.classList.remove('wnf-pending', 'wnf-kept', 'wnf-rejected');
     bookElement.classList.add('wnf-book', keep ? 'wnf-kept' : 'wnf-rejected');
 
     const icon = keep ? '\u2605' : '\u2715';
     const ratingStr = bookData.rating > 0 ? bookData.rating.toFixed(1) : 'N/A';
     const countStr =
         bookData.reviewCount > 0 ? ` (${bookData.reviewCount})` : '';
+    const tagIndicator = tagRejected ? ' \uD83C\uDFF7' : '';
     getOrCreateBadge(bookElement).textContent =
-        `${icon} ${ratingStr}${countStr}`;
+        `${icon} ${ratingStr}${countStr}${tagIndicator}`;
 }
 
 function sleep(ms) {
@@ -456,6 +698,7 @@ function sleep(ms) {
 // ── Init ─────────────────────────────────────────────────────────────────────
 
 injectStyles();
+createSettingsUI();
 scanBooks();
 observer.observe(document.querySelector(selector.booksContainer), {
     childList: true,

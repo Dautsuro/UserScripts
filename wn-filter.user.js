@@ -494,7 +494,7 @@ function createSettingsUI() {
     backdrop.innerHTML = `
         <div class="wnf-settings-panel">
             <h2>WN Filter \u2014 Tag Settings</h2>
-            <h3>Include tags (keep only books with at least one)</h3>
+            <h3>Include tags (keep only books with all of these)</h3>
             <div class="wnf-tag-input-row">
                 <input class="wnf-input-include" placeholder="Type a tag and press Enter">
             </div>
@@ -667,7 +667,7 @@ function filterBook(bookUrl, bookData) {
     const bookTags = (bookData.tags ?? []).map(t => t.replace(/^#\s*/, ''));
 
     if (keep && tagSettings.include.length > 0) {
-        if (!bookTags.some(t => tagSettings.include.some(inc => inc === t))) {
+        if (!tagSettings.include.every(inc => bookTags.some(t => t === inc))) {
             keep = false;
             tagRejected = true;
         }

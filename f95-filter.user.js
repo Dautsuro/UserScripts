@@ -402,16 +402,27 @@ async function scanGames() {
         const badge = getOrCreateBadge(tile);
         badge.className = 'f95f-badge f95f-badge--pending';
         badge.textContent = '\u2026';
-        fetchQueue.push(fetchGameData(gameUrl, getGameRating(tile)));
+        fetchQueue.push({ gameUrl, promise: fetchGameData(gameUrl, getGameRating(tile)) });
     }
 
-    const results = await Promise.all(fetchQueue);
-
-    for (const { gameUrl, gameData } of results) {
-        GM_setValue(gameUrl, gameData);
-        const tile = getGameElement(gameUrl);
-        if (tile) filterGame(tile, gameData);
-    }
+    fetchQueue.forEach(({ gameUrl, promise }) => {
+        promise
+            .then(({ gameUrl, gameData }) => {
+                GM_setValue(gameUrl, gameData);
+                const tile = getGameElement(gameUrl);
+                if (tile) filterGame(tile, gameData);
+            })
+            .catch((err) => {
+                console.debug('[F95Filter] fetch failed', gameUrl, err);
+                const tile = getGameElement(gameUrl);
+                if (tile) {
+                    tile.classList.remove('f95f-pending');
+                    const badge = getOrCreateBadge(tile);
+                    badge.className = 'f95f-badge f95f-badge--pending';
+                    badge.textContent = '?';
+                }
+            });
+    });
 }
 
 async function fetchGameData(gameUrl, rating) {

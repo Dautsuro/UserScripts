@@ -33,6 +33,10 @@ const selector = {
     reviewTab: '.tabs .tabs-tab[href*="/br-reviews/"]',
 };
 
+// ── State ────────────────────────────────────────────────────────────────────
+
+let hideRejected = GM_getValue('f95f-hide-rejected', false);
+
 // ── Inverse normal CDF coefficients (Acklam approximation) ──────────────────
 
 const _A = [
@@ -331,8 +335,56 @@ function injectStyles() {
             background: rgba(232, 168, 56, 0.92) !important;
             color: #1a1a1a !important;
         }
+
+        body.f95f-hide-rejected .f95f-rejected { display: none !important; }
+
+        .f95f-toggle-rejected-btn {
+            position: fixed !important;
+            bottom: 18px !important;
+            left: 18px !important;
+            z-index: 9999 !important;
+            width: 40px !important;
+            height: 40px !important;
+            border: none !important;
+            border-radius: 50% !important;
+            background: #2c3e50 !important;
+            color: #ecf0f1 !important;
+            font-size: 14px !important;
+            cursor: pointer !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+            transition: background 0.2s !important;
+            line-height: 40px !important;
+            text-align: center !important;
+            padding: 0 !important;
+        }
+        .f95f-toggle-rejected-btn:hover { background: #34495e !important; }
     `;
     document.head.appendChild(style);
+}
+
+// ── Toggle UI ─────────────────────────────────────────────────────────────────
+
+function createToggleUI() {
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'f95f-toggle-rejected-btn';
+    toggleBtn.setAttribute('aria-label', hideRejected ? 'Show rejected' : 'Hide rejected');
+    function updateToggleLabel() {
+        toggleBtn.textContent = hideRejected ? 'S' : 'H';
+        toggleBtn.title = hideRejected ? 'Show rejected' : 'Hide rejected';
+        toggleBtn.setAttribute('aria-label', hideRejected ? 'Show rejected' : 'Hide rejected');
+    }
+    updateToggleLabel();
+    toggleBtn.addEventListener('click', () => {
+        hideRejected = !hideRejected;
+        if (hideRejected) document.body.classList.add('f95f-hide-rejected');
+        else document.body.classList.remove('f95f-hide-rejected');
+        GM_setValue('f95f-hide-rejected', hideRejected);
+        updateToggleLabel();
+    });
+    document.body.appendChild(toggleBtn);
+
+    if (hideRejected) document.body.classList.add('f95f-hide-rejected');
+    else document.body.classList.remove('f95f-hide-rejected');
 }
 
 // ── DOM helpers ──────────────────────────────────────────────────────────────
@@ -468,5 +520,6 @@ function filterGame(gameElement, gameData) {
 // ── Init ─────────────────────────────────────────────────────────────────────
 
 injectStyles();
+createToggleUI();
 scanGames();
 window.addEventListener('urlchange', () => setTimeout(scanGames, 500));

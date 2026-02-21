@@ -46,6 +46,7 @@ const processedBooks = new Set();
 let scanTimer = null;
 const observer = new MutationObserver(debounceScan);
 let tagSettings = GM_getValue('wnf-tag-settings') ?? { include: [], exclude: [] };
+let hideRejected = GM_getValue('wnf-hide-rejected', false);
 
 // ── Inverse normal CDF coefficients (Acklam approximation) ──────────────────
 
@@ -344,6 +345,8 @@ function injectStyles() {
             color: #1a1a1a;
         }
 
+        body.wnf-hide-rejected .wnf-rejected { display: none !important; }
+
         .wnf-settings-btn {
             position: fixed;
             bottom: 18px;
@@ -364,6 +367,27 @@ function injectStyles() {
             padding: 0;
         }
         .wnf-settings-btn:hover { background: #34495e; }
+
+        .wnf-toggle-rejected-btn {
+            position: fixed;
+            bottom: 18px;
+            left: 66px;
+            z-index: 9999;
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            background: #2c3e50;
+            color: #ecf0f1;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: background 0.2s;
+            line-height: 40px;
+            text-align: center;
+            padding: 0;
+        }
+        .wnf-toggle-rejected-btn:hover { background: #34495e; }
 
         .wnf-settings-backdrop {
             position: fixed;
@@ -511,7 +535,24 @@ function createSettingsUI() {
         </div>
     `;
 
-    document.body.append(btn, backdrop);
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'wnf-toggle-rejected-btn';
+    toggleBtn.setAttribute('aria-label', hideRejected ? 'Show rejected' : 'Hide rejected');
+    function updateToggleLabel() {
+        toggleBtn.textContent = hideRejected ? 'S' : 'H';
+        toggleBtn.title = hideRejected ? 'Show rejected' : 'Hide rejected';
+        toggleBtn.setAttribute('aria-label', hideRejected ? 'Show rejected' : 'Hide rejected');
+    }
+    updateToggleLabel();
+    toggleBtn.addEventListener('click', () => {
+        hideRejected = !hideRejected;
+        if (hideRejected) document.body.classList.add('wnf-hide-rejected');
+        else document.body.classList.remove('wnf-hide-rejected');
+        GM_setValue('wnf-hide-rejected', hideRejected);
+        updateToggleLabel();
+    });
+
+    document.body.append(btn, toggleBtn, backdrop);
 
     // Working copies so we can discard on close
     let draft = { include: [...tagSettings.include], exclude: [...tagSettings.exclude] };
@@ -699,6 +740,8 @@ function sleep(ms) {
 
 injectStyles();
 createSettingsUI();
+if (hideRejected) document.body.classList.add('wnf-hide-rejected');
+else document.body.classList.remove('wnf-hide-rejected');
 scanBooks();
 observer.observe(document.querySelector(selector.booksContainer), {
     childList: true,

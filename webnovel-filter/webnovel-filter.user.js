@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WebNovel Filter
 // @namespace    https://github.com/Dautsuro/UserScripts
-// @version      1.1.1
+// @version      1.1.2
 // @description  A smart filter for WebNovel fanfics that identifies high-quality stories by analyzing review consistency and statistical significance.
 // @match        https://www.webnovel.com/tags/*-fanfic
 // @match        https://www.webnovel.com/search?keywords=*&type=fanfic
@@ -185,7 +185,7 @@
 
         GM_setValue('items', items);
         refreshItemsState();
-        if (waitingList.length) return filterItems(waitingList.splice(0, 20));
+        if (waitingList.length) return setTimeout(filterItems, 100, waitingList.splice(0, 20));
         isFiltering = false;
     }
 
@@ -206,11 +206,13 @@
     async function getRatings(item) {
         const ratings = [];
         let ratingCount = item.ratingCount;
+        let pageIndex = 1;
 
         while (ratingCount > 0) {
             const token = document.cookie.match(/_csrfToken=(.+?);/)[1];
-            const url = `https://www.webnovel.com/go/pcm/bookReview/get-reviews?_csrfToken=${token}&bookId=${item.id}&pageIndex=1&pageSize=${ratingCount > 100 ? 100 : ratingCount}&orderBy=1&novelType=0&needSummary=1`;
+            const url = `https://www.webnovel.com/go/pcm/bookReview/get-reviews?_csrfToken=${token}&bookId=${item.id}&pageIndex=${pageIndex}&pageSize=${ratingCount > 100 ? 100 : ratingCount}&orderBy=1&novelType=0&needSummary=1`;
             ratingCount = ratingCount - 100;
+            pageIndex++;
 
             const options = {
                 credentials: 'include',

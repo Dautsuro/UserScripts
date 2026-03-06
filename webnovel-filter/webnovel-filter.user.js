@@ -1,9 +1,10 @@
 // ==UserScript==
 // @name         WebNovel Filter
 // @namespace    https://github.com/Dautsuro/UserScripts
-// @version      1.0.0
+// @version      1.1.0
 // @description  A smart filter for WebNovel fanfics that identifies high-quality stories by analyzing review consistency and statistical significance.
 // @match        https://www.webnovel.com/tags/*-fanfic
+// @match        https://www.webnovel.com/search?keywords=*&type=fanfic
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_addStyle
@@ -11,6 +12,13 @@
 
 (function () {
     'use strict';
+
+    const isSearchPage = location.href.includes('/search');
+
+    const SELECTORS = {
+        ITEM: isSearchPage ? '.j_result_wrap .pr' : '.g_book_item',
+        ITEMS_CONTAINER: isSearchPage ? '.j_result_wrap' : '.j_bookList',
+    };
 
     const DELAY_BETWEEN_CHECKS = 3 * 24 * 60 * 60 * 1000;
     const waitingList = [];
@@ -117,23 +125,35 @@
         return new Promise((resolve) => setTimeout(resolve, delay));
     }
 
+    function getItemId(itemElement) {
+        if (itemElement.dataset.reportDid) return itemElement.dataset.reportDid;
+        const titleElement = getTitleElement(itemElement);
+        return titleElement.dataset.bookid;
+    }
+
+    function getTitleElement(itemElement) {
+        return itemElement.querySelector('a[href*="/book/"]');
+    }
+
     async function filterItems(itemElements) {
         isFiltering = true;
-        if (!itemElements) itemElements = document.querySelectorAll('.g_book_item');
+        if (!itemElements) itemElements = document.querySelectorAll(SELECTORS.ITEM);
+        console.log(itemElements);
         itemElements.forEach(element => element.dataset.duState = 'waiting');
         const items = GM_getValue('items', []);
 
         for (const itemElement of itemElements) {
-            const titleElement = itemElement.querySelector('a[href*="/book/"]');
+            const titleElement = getTitleElement(itemElement);
             const ratingElement = itemElement.querySelector('.g_star_num small');
             if (!titleElement) continue;
 
             itemElement.dataset.duState = 'processing';
-            let item = items.find(i => i.id === itemElement.dataset.reportDid);
+            const itemId = getItemId(itemElement);
+            let item = items.find(i => i.id === itemId);
 
             if (!item) {
                 item = {
-                    id: itemElement.dataset.reportDid,
+                    id: itemId,
                     title: titleElement.title,
                     url: titleElement.href,
                     rating: ratingElement ? parseFloat(ratingElement.textContent) : 0,
@@ -173,8 +193,12 @@
         const items = GM_getValue('items', []);
 
         for (const item of items) {
-            const itemElement = document.querySelector(`.g_book_item[data-report-did="${item.id}"]`);
+            let itemElement = isSearchPage
+                ? document.querySelector(`[data-bookid="${item.id}"]`)
+                : document.querySelector(`[data-report-did="${item.id}"]`);
+
             if (!itemElement) continue;
+            if (isSearchPage) itemElement = itemElement.closest(SELECTORS.ITEM);
             itemElement.dataset.duState = isItemAccepted(item, items) ? 'accepted' : 'refused';
         }
     }
@@ -218,13 +242,13 @@
     const itemsObserver = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
             for (const node of mutation.addedNodes) {
-                if (node.nodeType === Node.ELEMENT_NODE) waitingList.push(node.querySelector('.g_book_item'));
+                if (node.nodeType === Node.ELEMENT_NODE) waitingList.push(isSearchPage ? node : node.querySelector(SELECTORS.ITEM));
             }
         }
 
         if (!isFiltering && waitingList.length) filterItems(waitingList.splice(0, 20));
     });
 
-    itemsObserver.observe(document.querySelector('.j_bookList'), { subtree: true, childList: true });
+    itemsObserver.observe(document.querySelector(SELECTORS.ITEMS_CONTAINER), { subtree: true, childList: true });
     filterItems();
 })();

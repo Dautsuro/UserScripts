@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WebNovel Filter
 // @namespace    https://github.com/Dautsuro/UserScripts
-// @version      1.1.0
+// @version      1.1.1
 // @description  A smart filter for WebNovel fanfics that identifies high-quality stories by analyzing review consistency and statistical significance.
 // @match        https://www.webnovel.com/tags/*-fanfic
 // @match        https://www.webnovel.com/search?keywords=*&type=fanfic
@@ -194,8 +194,8 @@
 
         for (const item of items) {
             let itemElement = isSearchPage
-                ? document.querySelector(`[data-bookid="${item.id}"]`)
-                : document.querySelector(`[data-report-did="${item.id}"]`);
+                ? document.querySelector(`${SELECTORS.ITEM} [data-bookid="${item.id}"]`)
+                : document.querySelector(`${SELECTORS.ITEM}[data-report-did="${item.id}"]`);
 
             if (!itemElement) continue;
             if (isSearchPage) itemElement = itemElement.closest(SELECTORS.ITEM);

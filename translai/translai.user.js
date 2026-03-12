@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   1.1.1
+// @version   1.2.1
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -250,6 +250,14 @@ function getNameByTranslated(translated) {
     return names.find(name => name.translated === translated);
 }
 
+function getVerifiedNames() {
+    const bookId = getBookId();
+    const localNames = GM_getValue(`${bookId}:names`, []);
+    const globalNames = GM_getValue('names', []);
+
+    return [...localNames.filter(name => name.checked), ...globalNames];
+}
+
 function isNameGlobal(name) {
     const globalNames = GM_getValue('names', []);
     return !!globalNames.find(({original}) => original === name.original);
@@ -368,7 +376,11 @@ function searchTranslatedName() {
 function copyNamePrompt() {
     const original = getSelectedName();
     if (!original) return;
-    const prompt = `**Role:** You are a Senior Sinologist and Localization Expert specializing in Chinese-to-English Webnovel translation (Soul Land, Wuxia/Xianxia, and Shonen anime).\n**Input Name:** \`${original}\`\n**Task:** 1. Analyze the components (radicals and meanings) of the Chinese name.\n2. Generate a list of possible English translations, localized for a fanfiction audience.\n3. Rank them from "Best/Most Natural" to "Literal/Functional."\n**Requirements for each entry:**\n* **The Translation:** A punchy, localized English name or title.\n* **The "Why":** A one-sentence explanation of why this works (e.g., tone, cultural reference, or specific fandom trope).\n\n\n**Constraint:** Do not provide a long essay. Keep the list scannable and professional.\n**Begin your response with:** "Here are the proposed translations for \`${original}\`, ranked by narrative impact:"`;
+    const bookId = getBookId();
+    const chapterId = getChapterId();
+    const cachedChapter = GM_getValue(`${bookId}:${chapterId}`);
+    const verifiedNames = JSON.stringify(getVerifiedNames()).replaceAll(',"checked":true', '');
+    const prompt = `**Role:** You are a Lead Localization Editor for high-end Chinese Webnovel translations. Your goal is to find the perfect English name for a specific character/entity based on cultural nuance and existing series consistency.\n**1. The Target Name:** \`${original}\`\n**2. The Context (Original Chapter):** \`${cachedChapter.original}\`\n**3. Approved Glossary (Existing Translations):**\n\`${verifiedNames}\`\n**Task:** Analyze the **Target Name** in the context of the **Chapter** provided. Use the **Approved Glossary** to ensure the style and terminology remain consistent with the rest of the work.\n**Output Requirements:**\nProvide a ranked list of 3-5 translation options. For each option, include:\n* **The Translation:** (e.g., "Silver-Winged Eagle")\n* **Linguistic Logic:** Why these characters translate this way.\n* **Contextual Fit:** Why this fits the character's role or actions in this specific chapter.\n* **Glossary Alignment:** How it fits the naming convention of the approved list.\n\n\n**Ranking Priority:** Rank based on (1) Narrative Impact, (2) Consistency with the Glossary, and (3) Clarity for an English reader.\n**Constraint:** Be concise. Focus on the "flavor" of the name.`;
     GM_setClipboard(prompt, 'text/plain');
 }
 

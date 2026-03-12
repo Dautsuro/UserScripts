@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   1.1.0
+// @version   1.1.1
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -387,10 +387,20 @@ function highlightNames(chapter) {
 
     chapter = chapter.replace(regex, translated => {
         const name = getNameByTranslated(translated);
-        let color = 'red';
-        if (name.checked) color = 'blue';
-        if (isNameGlobal(name)) color = 'green';
-        return `<b style="background-color: ${color}; user-select: all;" data-original="${name.original}">${name.translated}</b>`;
+        let textColor = '#ffffff';
+        let color = '#5e2424';
+
+        if (name.checked) {
+            textColor = '#bebdbb';
+            color = '#1e3a5f';
+        }
+
+        if (isNameGlobal(name)) {
+            textColor = '#d8f3dc'
+            color = '#1b4332';
+        }
+
+        return `<b style="color: ${textColor}; background-color: ${color}; user-select: all;" data-original="${name.original}">${name.translated}</b>`;
     });
 
     setChapter(chapter);

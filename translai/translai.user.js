@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   1.4.3
+// @version   1.5.0
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
 // @grant     GM_getValue
 // @grant     GM_setValue
+// @grant     GM_deleteValue
+// @grant     GM_listValues
 // @grant     GM_addStyle
 // @grant     GM_openInTab
 // @grant     GM_setClipboard
@@ -364,6 +366,17 @@ function generatePrompt() {
     GM_setClipboard(prompt, 'text/plain');
 }
 
+function deleteCache() {
+    const keys = GM_listValues();
+
+    for (const key of keys) {
+        if (key === `${BOOK_ID}:names` || key === `${BOOK_ID}:fandoms`) continue;
+        if (key.includes(BOOK_ID)) GM_deleteValue(key);
+    }
+
+    alert(`Cache deleted for book ${BOOK_ID}`);
+}
+
 function injectButton(label, onClick) {
     let container = document.getElementById('button-container');
 
@@ -398,6 +411,8 @@ if (location.href.includes('/book/')) {
 
     setContent(SELECTORS.TITLE, cache.title);
     setContent(SELECTORS.SYNOPSIS, cache.synopsis);
+
+    injectButton('🗑️', deleteCache);
 }
 
 if (location.href.includes('/txt/')) {

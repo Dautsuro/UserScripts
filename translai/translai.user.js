@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   1.3.0
+// @version   1.4.0
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -228,6 +228,21 @@ function changeNameInContent(oldName, newName) {
     refreshHighlight();
 }
 
+function replaceNamesInContent(content) {
+    for (const names of [cache.names.global, cache.names.local]) {
+        if (!names.length) continue;
+        const regexPattern = names.map(name => name.original).join('|');
+        const regex = new RegExp(regexPattern, 'g');
+
+        content = content.replace(regex, match => {
+            const name = names.find(({ original }) => original === match);
+            return name.translated;
+        });
+    }
+
+    return content;
+}
+
 function saveNames(names) {
     for (const name of names) {
         if (!name.original || !name.translated) continue;
@@ -392,7 +407,8 @@ if (location.href.includes('/txt/')) {
     cache.originalChapter = chapter;
 
     if (!cache.chapter) {
-        cache.chapter = await translateContent(chapter, API_PARAMETERS.chapter);
+        const formattedChapter = replaceNamesInContent(chapter);
+        cache.chapter = await translateContent(formattedChapter, API_PARAMETERS.chapter);
         GM_setValue(`${BOOK_ID}:${CHAPTER_ID}`, cache.chapter);
     }
     

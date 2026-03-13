@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   1.4.1
+// @version   1.4.2
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -200,6 +200,7 @@ async function extractNamesFromContent(originalContent, translatedContent) {
 function highlightNamesInContent(content) {
     for (const names of [cache.names.global, cache.names.local]) {
         if (!names.length) continue;
+        names.sort((a, b) => b.translated.length - a.translated.length);
         const regexPattern = `(${names.map(name => name.translated).join('|')})(?!<\/b>)`;
         const regex = new RegExp(regexPattern, 'g');
 
@@ -231,6 +232,7 @@ function changeNameInContent(oldName, newName) {
 function replaceNamesInContent(content) {
     for (const names of [cache.names.global, cache.names.local]) {
         if (!names.length) continue;
+        names.sort((a, b) => b.original.length - a.original.length);
         const regexPattern = names.map(name => name.original).join('|');
         const regex = new RegExp(regexPattern, 'g');
 

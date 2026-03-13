@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   1.4.2
+// @version   1.4.3
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -198,22 +198,20 @@ async function extractNamesFromContent(originalContent, translatedContent) {
 }
 
 function highlightNamesInContent(content) {
-    for (const names of [cache.names.global, cache.names.local]) {
-        if (!names.length) continue;
-        names.sort((a, b) => b.translated.length - a.translated.length);
-        const regexPattern = `(${names.map(name => name.translated).join('|')})(?!<\/b>)`;
-        const regex = new RegExp(regexPattern, 'g');
+    const names = [...cache.names.global, ...cache.names.local];
+    names.sort((a, b) => b.translated.length - a.translated.length);
+    const regexPattern = `(${names.map(name => name.translated).join('|')})(?!<\/b>)`;
+    const regex = new RegExp(regexPattern, 'g');
 
-        content = content.replace(regex, match => {
-            const name = names.find(({ translated }) => translated === match);
+    content = content.replace(regex, match => {
+        const name = names.find(({ translated }) => translated === match);
 
-            let color = COLORS.local;
-            if (name.checked) color = COLORS.checked;
-            if (isNameGlobal(name)) color = COLORS.global;
+        let color = COLORS.local;
+        if (name.checked) color = COLORS.checked;
+        if (isNameGlobal(name)) color = COLORS.global;
 
-            return `<b style="color: ${color.text}; background-color: ${color.background}; user-select: all;" data-original="${name.original}">${name.translated}</b>`;
-        });
-    }
+        return `<b style="color: ${color.text}; background-color: ${color.background}; user-select: all;" data-original="${name.original}">${name.translated}</b>`;
+    });
 
     return content;
 }
@@ -230,17 +228,15 @@ function changeNameInContent(oldName, newName) {
 }
 
 function replaceNamesInContent(content) {
-    for (const names of [cache.names.global, cache.names.local]) {
-        if (!names.length) continue;
-        names.sort((a, b) => b.original.length - a.original.length);
-        const regexPattern = names.map(name => name.original).join('|');
-        const regex = new RegExp(regexPattern, 'g');
+    const names = [...cache.names.global, ...cache.names.local];
+    names.sort((a, b) => b.original.length - a.original.length);
+    const regexPattern = names.map(name => name.original).join('|');
+    const regex = new RegExp(regexPattern, 'g');
 
-        content = content.replace(regex, match => {
-            const name = names.find(({ original }) => original === match);
-            return name.translated;
-        });
-    }
+    content = content.replace(regex, match => {
+        const name = names.find(({ original }) => original === match);
+        return name.translated;
+    });
 
     return content;
 }

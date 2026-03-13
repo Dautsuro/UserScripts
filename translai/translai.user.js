@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   1.4.0
+// @version   1.4.1
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -97,7 +97,7 @@ GM_addStyle(`
     }
 
     #button-container button {
-        font-size: large;
+        font-size: x-large;
         margin-top: 5px;
     }
 `);
@@ -403,6 +403,7 @@ if (location.href.includes('/book/')) {
 }
 
 if (location.href.includes('/txt/')) {
+    document.querySelector('.tools')?.remove();
     const chapter = getContent(SELECTORS.CHAPTER);
     cache.originalChapter = chapter;
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   1.6.0
+// @version   1.6.1
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -354,7 +354,7 @@ function looseSearchName() {
     GM_openInTab(`https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`);
 }
 
-// Should be a correct implementation of the Levenshein distance
+// Should be a correct implementation of the Levenshtein distance
 // Source: https://en.wikipedia.org/wiki/Levenshtein_distance
 function levenshtein(nameA, nameB) {
     const tmp = [];
@@ -392,7 +392,7 @@ function generatePrompt() {
         .map(name => `${name.original}:${name.translated}:${name.checked ? '1' : '2'}`)
         .join('\n');
 
-    const prompt = `**Role:** Lead Localization Editor for Chinese Webnovels. \n\n**Target Name:** \`${name.original}\`\n**Context:** \`${cache.originalChapter}\`\n\n**Glossary (Format -> Original:Translated:Weight):**\n* Weight 2 = Official wiki translation (Mandatory style matching).\n* Weight 1 = Unofficial translation (Use as flexible inspiration).\n\`\`\`\n${formattedNames}\n\`\`\`\n\n**Task:** Provide 3-5 ranked English translation options for the Target Name based on the Context. You must prioritize styling the name after Weight 2 glossary terms.\n\n**Output per option:**\n* **Translation:** * **Logic & Context:** Brief explanation of the linguistic translation and chapter fit.\n* **Glossary Alignment:** How it matches the approved glossary's style.\n\n**Ranking:** 1. Glossary Consistency (Weight 2 > Weight 1), 2. Narrative Impact, 3. English Clarity. Keep it concise and flavor-focused.`;
+    const prompt = `### Updated Prompt\n\n**Role:** Lead Localization Editor for Chinese Webnovels.\n\n**Target Name:** \`${name.original}\`\n**Context:** \`${cache.originalChapter}\`\n\n**Glossary (Original:Translated:Weight):**\n${formattedNames}\n\n**Instructions:**\n\n* Provide 3–5 translation options, ranked with the best option first.\n* **No Word Fusion:** Never combine separate words/concepts into one (e.g., use "Shadow Blade," not "Shadowblade").\n* **Naming Style:** Keep names concise. Do not use "the," "of," or other articles/prepositions unless absolutely necessary for the name's meaning.\n* **Prioritization:** Follow the style of Weight 2 glossary terms.\n\n**Output:**\nReturn **only** a numbered list of the translated names in order of quality. Do not include explanations, logic, or any other text.\n\n---\n\n**Would you like me to provide a version formatted as a JavaScript function?**`;
 
     GM_setClipboard(prompt, 'text/plain');
 }

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   1.6.1
+// @version   1.7.0
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -201,8 +201,14 @@ async function extractNamesFromContent(originalContent, translatedContent) {
 
 function highlightNamesInContent(content) {
     const names = [...cache.names.global, ...cache.names.local];
-    names.sort((a, b) => b.translated.length - a.translated.length);
-    const regexPattern = `(${names.map(name => name.translated).join('|')})(?!<\/b>)`;
+    const escapedNames = [];
+
+    for (const item of names) {
+        escapedNames.push(item.translated.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    }
+
+    escapedNames.sort((a, b) => b.length - a.length);
+    const regexPattern = `(?<![a-zA-Z0-9'])(?:${escapedNames.join('|')})(?![a-zA-Z0-9'])`;
     const regex = new RegExp(regexPattern, 'g');
 
     content = content.replace(regex, match => {
@@ -269,13 +275,16 @@ function getSelectedName() {
     return globalName || localName;
 }
 
-function editName(name) {
+function editName(name, newName) {
     if (!name.original || !name.translated) name = getSelectedName();
     if (!name) return;
-    
+
     const oldName = name.translated;
-    const newName = prompt('Enter new name')?.trim();
-    if (!newName) return;
+
+    if (!newName) {
+        newName = prompt('Enter new name')?.trim();
+        if (!newName) return;
+    }
 
     name.translated = newName;
     GM_setValue(`${BOOK_ID}:names`, cache.names.local);
@@ -283,8 +292,8 @@ function editName(name) {
     changeNameInContent(oldName, newName);
 }
 
-function toggleGlobalName() {
-    const name = getSelectedName();
+function toggleGlobalName(name) {
+    if (!name.original || !name.translated) name = getSelectedName();
     if (!name) return;
 
     if (isNameGlobal(name)) {
@@ -307,6 +316,23 @@ function toggleCheckName() {
 
     if (!name.checked) editName(name);
     name.checked = !name.checked;
+
+    const keys = GM_listValues().filter(key => key.includes(':names'));
+    let occurrence = 0;
+
+    for (const key of keys) {
+        const tmpNames = GM_getValue(key);
+        const tmpName = tmpNames.find(({ original }) => original === name.original);
+
+        if (tmpName && tmpName.translated === name.translated) {
+            occurrence++;
+        }
+    }
+
+    if (occurrence >= 3) {
+        toggleGlobalName(name);
+        return;
+    }
 
     GM_setValue(`${BOOK_ID}:names`, cache.names.local);
     GM_setValue('names', cache.names.global);
@@ -408,6 +434,27 @@ function deleteCache() {
     alert(`Cache deleted for book ${BOOK_ID}`);
 }
 
+function addName() {
+    const originalName = prompt('Enter original name')?.trim();
+    if (!originalName) return;
+    const translatedName = prompt('Enter translated name')?.trim();
+    if (!translatedName) return;
+
+    const localName = cache.names.local.find(name => name.original === originalName);
+    const globalName = cache.names.global.find(name => name.original === originalName);
+    const name = localName || globalName;
+
+    if (name) {
+        editName(name, translatedName);
+    } else {
+        cache.names.local.push({ original: originalName, translated: translatedName });
+    }
+
+    GM_setValue(`${BOOK_ID}:names`, cache.names.local);
+    GM_setValue('names', cache.names.global);
+    refreshHighlight();
+}
+
 function injectButton(label, onClick) {
     let container = document.getElementById('button-container');
 
@@ -457,12 +504,13 @@ if (location.href.includes('/txt/')) {
         GM_setValue(`${BOOK_ID}:${CHAPTER_ID}`, cache.chapter);
     }
     
-    const names = await extractNamesFromContent(chapter, cache.chapter);
-    saveNames(names);
+    // const names = await extractNamesFromContent(chapter, cache.chapter);
+    // saveNames(names);
     refreshHighlight();
 
     injectButton('⚙️', setFandoms);
     injectButton('🗑️', deleteName);
+    injectButton('➕', addName);
     injectButton('✨', generatePrompt);
     injectButton('✏️', editName);
     injectButton('📌', toggleGlobalName);

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   1.8.0
+// @version   1.8.1
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -448,8 +448,9 @@ function addName() {
 
     if (name) {
         editName(name, translatedName);
+        if (!isNameGlobal(name)) toggleGlobalName(name);
     } else {
-        cache.names.local.push({ original: originalName, translated: translatedName });
+        cache.names.global.push({ original: originalName, translated: translatedName });
     }
 
     GM_setValue(`${BOOK_ID}:names`, cache.names.local);

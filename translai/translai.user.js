@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   1.8.1
+// @version   1.9.0
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -90,15 +90,22 @@ const cache = {
 };
 
 GM_addStyle(`
-    #button-container {
+    .button-container {
         position: fixed;
         bottom: 0;
-        right: 0;
         display: grid;
         margin: 5px;
     }
 
-    #button-container button {
+    #right-button-container {
+        right: 0;
+    }
+
+    #left-button-container {
+        left: 0;
+    }
+
+    .button-container button {
         font-size: x-large;
         margin-top: 5px;
     }
@@ -467,12 +474,41 @@ function generateCheckPrompt() {
     GM_setClipboard(prompt, 'text/plain');
 }
 
-function injectButton(label, onClick) {
-    let container = document.getElementById('button-container');
+async function exportNames() {
+    const jsonString = JSON.stringify(cache.names.global);
+    const stream = new Blob([jsonString]).stream()
+        .pipeThrough(new CompressionStream('gzip'));
+    
+    const compressedBuffer = await new Response(stream).arrayBuffer();
+    GM_setClipboard(btoa(String.fromCharCode(...new Uint8Array(compressedBuffer))));
+}
+
+async function importNames() {
+    const base64String = prompt('Enter your base64 save token')?.trim();
+    if (!base64String) return;
+    const binary = Uint8Array.from(atob(base64String), c => c.charCodeAt(0));
+    const stream = new Blob([binary]).stream()
+        .pipeThrough(new DecompressionStream('gzip'));
+    
+    const decompressedText = await new Response(stream).text();
+    const names = JSON.parse(decompressedText);
+
+    for (const name of names) {
+        if (!name.original || !name.translated) continue;
+        if (cache.names.global.find(({ original }) => original === name.original)) continue;
+        cache.names.global.push({ original: name.original, translated: name.translated });
+    }
+
+    GM_setValue('names', cache.names.global);
+}
+
+function injectButton(label, onClick, position = 'right') {
+    let container = document.getElementById(`${position}-button-container`);
 
     if (!container) {
         container = document.createElement('div');
-        container.id = 'button-container';
+        container.id = `${position}-button-container`;
+        container.className = 'button-container';
         document.body.appendChild(container);
     }
 
@@ -516,11 +552,11 @@ if (location.href.includes('/txt/')) {
         GM_setValue(`${BOOK_ID}:${CHAPTER_ID}`, cache.chapter);
     }
     
-    const names = await extractNamesFromContent(chapter, cache.chapter);
-    saveNames(names);
+    // const names = await extractNamesFromContent(chapter, cache.chapter);
+    // saveNames(names);
     refreshHighlight();
 
-    injectButton('⚙️', setFandoms);
+    
     injectButton('🗑️', deleteName);
     injectButton('➕', addName);
     injectButton('🔮', generateCheckPrompt);
@@ -530,4 +566,8 @@ if (location.href.includes('/txt/')) {
     injectButton('✔️', toggleCheckName);
     injectButton('🔎', looseSearchName);
     injectButton('🔍', searchName);
+
+    injectButton('⚙️', setFandoms, 'left');
+    injectButton('⬆️', exportNames, 'left');
+    injectButton('⬇️', importNames, 'left');
 }

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   1.5.0
+// @version   1.6.0
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -41,7 +41,7 @@ const API_PARAMETERS = {
         topK: 40,
     },
     chapter: {
-        prompt: 'Role: Master Literary Translator (20 years exp) specializing in Chinese Webnovels.\nTask: High-fidelity translation of the chapter content.\nRules:\n- METRIC CONVERSION: Convert traditional Chinese units (e.g., li, jin, zhang) into their **Metric System** equivalents (meters, km, kg).\n- PROSE: Prioritize active voice. Avoid the "staccato" feel of literal MTL; ensure sentences flow naturally.\n- VERIFIED TERMS: Keep Latin-script names/terms exactly as they are.\n- DIALOGUE/SYSTEM: Speech in "", thoughts in \'\'. Preserve 【 】, 「 」, or 『 』 for system blocks.\n- HONORIFICS: Use natural English (e.g., "Senior," "Teacher," "Sect Leader").\n- Output ONLY the translated text.',
+        prompt: 'Role: Master Literary Translator (20 years exp) specializing in Chinese Webnovels.\nTask: High-fidelity translation of the chapter content.\nRules:\n- METRIC CONVERSION: Convert traditional Chinese units (e.g., li, jin, zhang) into their **Metric System** equivalents (meters, km, kg).\n- PROSE: Prioritize active voice. Avoid the "staccato" feel of literal MTL; ensure sentences flow naturally.\n- VERIFIED TERMS: Keep Latin-script names/terms exactly as they are.\n- DIALOGUE/SYSTEM: Speech in "", thoughts in \'\'. Preserve 【 】, 「 」, or 『 』 for system blocks.\n- HONORIFICS: Use natural English (e.g., "Senior," "Teacher," "Sect Leader").\n- Output ONLY the translated text, title included.',
         temperature: 0.6,
         topP: 0.9,
         topK: 40,
@@ -354,12 +354,43 @@ function looseSearchName() {
     GM_openInTab(`https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`);
 }
 
+// Should be a correct implementation of the Levenshein distance
+// Source: https://en.wikipedia.org/wiki/Levenshtein_distance
+function levenshtein(nameA, nameB) {
+    const tmp = [];
+    for (let i = 0; i <= nameA.length; i++) tmp[i] = [i];
+    for (let j = 0; j <= nameB.length; j++) tmp[0][j] = j;
+
+    for (let i = 1; i <= nameA.length; i++) {
+        for (let j = 1; j <= nameB.length; j++) {
+            tmp[i][j] = Math.min(
+                tmp[i - 1][j] + 1,
+                tmp[i][j - 1] + 1,
+                tmp[i - 1][j - 1] + (nameA[i - 1] === nameB[j - 1] ? 0 : 1)
+            );
+        }
+    }
+
+    return tmp[nameA.length][nameB.length];
+}
+
+function isNamesSimilar(nameA, nameB) {
+    const distance = levenshtein(nameA, nameB);
+    const longest = Math.max(nameA.length, nameB.length);
+    const similarity = (longest - distance) / longest;
+    return similarity >= 0.3 || nameA.includes(nameB) || nameB.includes(nameA);
+}
+
 function generatePrompt() {
     const name = getSelectedName();
     if (!name) return;
 
     const names = [...cache.names.local.filter(name => name.checked), ...cache.names.global];
-    const formattedNames = names.map(name => `${name.original}:${name.translated}:${name.checked ? '1' : '2'}`).join('\n');
+
+    const formattedNames = names
+        .filter(({ original }) => isNamesSimilar(name.original, original))
+        .map(name => `${name.original}:${name.translated}:${name.checked ? '1' : '2'}`)
+        .join('\n');
 
     const prompt = `**Role:** Lead Localization Editor for Chinese Webnovels. \n\n**Target Name:** \`${name.original}\`\n**Context:** \`${cache.originalChapter}\`\n\n**Glossary (Format -> Original:Translated:Weight):**\n* Weight 2 = Official wiki translation (Mandatory style matching).\n* Weight 1 = Unofficial translation (Use as flexible inspiration).\n\`\`\`\n${formattedNames}\n\`\`\`\n\n**Task:** Provide 3-5 ranked English translation options for the Target Name based on the Context. You must prioritize styling the name after Weight 2 glossary terms.\n\n**Output per option:**\n* **Translation:** * **Logic & Context:** Brief explanation of the linguistic translation and chapter fit.\n* **Glossary Alignment:** How it matches the approved glossary's style.\n\n**Ranking:** 1. Glossary Consistency (Weight 2 > Weight 1), 2. Narrative Impact, 3. English Clarity. Keep it concise and flavor-focused.`;
 

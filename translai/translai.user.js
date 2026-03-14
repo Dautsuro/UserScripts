@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   1.7.4
+// @version   1.8.0
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -457,6 +457,15 @@ function addName() {
     refreshHighlight();
 }
 
+function generateCheckPrompt() {
+    const name = getSelectedName();
+    if (!name) return;
+
+    const prompt = `Determine if the Chinese name **${name.original}** matches the English name provided below. Consider standard Pinyin, regional transliterations (like Cantonese or Hokkien), and common English equivalents.\n\n**Output format:**\n\n* If they match: ✅\n* If they do not match: ❌ [Short explanation]\n\n**English Name:** `;
+
+    GM_setClipboard(prompt, 'text/plain');
+}
+
 function injectButton(label, onClick) {
     let container = document.getElementById('button-container');
 
@@ -513,6 +522,7 @@ if (location.href.includes('/txt/')) {
     injectButton('⚙️', setFandoms);
     injectButton('🗑️', deleteName);
     injectButton('➕', addName);
+    injectButton('🔮', generateCheckPrompt);
     injectButton('✨', generatePrompt);
     injectButton('✏️', editName);
     injectButton('📌', toggleGlobalName);

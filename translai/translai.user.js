@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   1.9.0
+// @version   1.9.1
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -552,8 +552,8 @@ if (location.href.includes('/txt/')) {
         GM_setValue(`${BOOK_ID}:${CHAPTER_ID}`, cache.chapter);
     }
     
-    // const names = await extractNamesFromContent(chapter, cache.chapter);
-    // saveNames(names);
+    const names = await extractNamesFromContent(chapter, cache.chapter);
+    saveNames(names);
     refreshHighlight();
 
     

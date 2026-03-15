@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   2.0.2
+// @version   2.0.3
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -41,7 +41,7 @@ const API_PARAMETERS = {
         topK: 40,
     },
     chapter: {
-        prompt: 'Role: Master Literary Translator (20 years exp) specializing in Chinese Webnovels.\nTask: High-fidelity translation of the chapter content.\nRules:\n- METRIC CONVERSION: Convert traditional Chinese units (e.g., li, jin, zhang) into their **Metric System** equivalents (meters, km, kg).\n- PROSE: Prioritize active voice. Avoid the "staccato" feel of literal MTL; ensure sentences flow naturally.\n- VERIFIED TERMS: Keep Latin-script names/terms exactly as they are.\n- DIALOGUE/SYSTEM: Speech in "", thoughts in \'\'. Preserve 【 】, 「 」, or 『 』 for system blocks.\n- HONORIFICS: Use natural English (e.g., "Senior," "Teacher," "Sect Leader").\n- Output ONLY the translated text, title included.',
+        prompt: 'Role: Master Literary Translator (20 years exp) specializing in Chinese Webnovels.\nTask: High-fidelity translation of the chapter content.\nRules:\n- METRIC CONVERSION: Convert traditional Chinese units (e.g., li, jin, zhang) into their **Metric System** equivalents (meters, km, kg).\n- PROSE: Prioritize active voice. Avoid the "staccato" feel of literal MTL; ensure sentences flow naturally.\n- VERIFIED TERMS: Use the provided glossary when it makes sense to use them in the context.\n- DIALOGUE/SYSTEM: Speech in "", thoughts in \'\'. Preserve 【 】, 「 」, or 『 』 for system blocks.\n- HONORIFICS: Use natural English (e.g., "Senior," "Teacher," "Sect Leader").\n- Output ONLY the translated text, title included.',
         temperature: 0.6,
         topP: 0.9,
         topK: 40,
@@ -202,6 +202,7 @@ function setContent(selector, content) {
 }
 
 async function translateContent(content, parameters) {
+    console.log(content);
     const { prompt, temperature, topP, topK } = parameters;
     const translatedContent = await generateContent(content, prompt, temperature, topP, topK);
     return translatedContent;
@@ -224,7 +225,7 @@ function highlightNamesInContent(content) {
     }
 
     escapedNames.sort((a, b) => b.length - a.length);
-    const regexPattern = `(?<![a-zA-Z0-9'])(?:${escapedNames.join('|')})(?![a-zA-Z0-9'])`;
+    const regexPattern = `\b${escapedNames.join('|')}\b`;
     const regex = new RegExp(regexPattern, 'g');
 
     content = content.replace(regex, match => {
@@ -251,19 +252,14 @@ function changeNameInContent(oldName, newName) {
     refreshHighlight();
 }
 
-function replaceNamesInContent(content) {
+function createGlossary(content) {
     const names = [...cache.names.global, ...cache.names.local];
-    if (!names.length) return content;
+    if (!names.length) return [];
     names.sort((a, b) => b.original.length - a.original.length);
     const regexPattern = names.map(name => name.original).join('|');
     const regex = new RegExp(regexPattern, 'g');
-
-    content = content.replace(regex, match => {
-        const name = names.find(({ original }) => original === match);
-        return name.translated;
-    });
-
-    return content;
+    const matches = content.match(regex);
+    return [...new Set(matches.map(match => names.find(({ original }) => original === match)))];
 }
 
 function saveNames(names) {
@@ -576,8 +572,8 @@ if (location.href.includes('/txt/')) {
     cache.originalChapter = chapter;
 
     if (!cache.chapter) {
-        const formattedChapter = replaceNamesInContent(chapter);
-        cache.chapter = await translateContent(formattedChapter, API_PARAMETERS.chapter);
+        const glossary = createGlossary(chapter);
+        cache.chapter = await translateContent(`<glossary>${JSON.stringify(glossary)}</glossary><chapter>${chapter}</chapter>`, API_PARAMETERS.chapter);
         GM_setValue(`${BOOK_ID}:${CHAPTER_ID}`, cache.chapter);
     }
     

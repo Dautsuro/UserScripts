@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   2.0.3
+// @version   2.1.0
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -35,7 +35,7 @@ const API_PARAMETERS = {
         topK: 40,
     },
     synopsis: {
-        prompt: 'Role: Senior Localization Editor for Webnovels.\nExpertise: Soul Land (Douluo Dalu) and Shonen Anime (Naruto, OP, Bleach, JJK).\nTask: Translate the synopsis into a compelling English narrative hook.\nGuidelines:\n- FLOW: Avoid repetitive sentence starters (e.g., "He... He..."). Use narrative transitions.\n- METADATA: Standardize tags (e.g., [OP MC], [Cultivation]).\n- TONE: Mirror the original atmospheric vibe (Dark, Epic, etc.).\n- SYMBOLS: Keep all brackets/symbols (【 】, 「 」) exactly as they are.\n- Output ONLY the synopsis.',
+        prompt: 'Role: Senior Localization Editor for Webnovels.\nExpertise: Soul Land (Douluo Dalu) and Shonen Anime (Naruto, OP, Bleach, JJK).\nTask: Translate the synopsis into a compelling English narrative hook.\nGuidelines:\n- FLOW: Avoid repetitive sentence starters (e.g., "He... He..."). Use narrative transitions.\n- METADATA: Standardize tags (e.g., [OP MC], [Cultivation]).\n- TONE: Mirror the original atmospheric vibe (Dark, Epic, etc.).\n- VERIFIED TERMS: Use the provided glossary when it makes sense to use them in the context.\n- SYMBOLS: Keep all brackets/symbols (【 】, 「 」) exactly as they are.\n- Output ONLY the synopsis.',
         temperature: 0.5,
         topP: 0.9,
         topK: 40,
@@ -95,6 +95,7 @@ GM_addStyle(`
         bottom: 0;
         display: grid;
         margin: 5px;
+        z-index: 100000;
     }
 
     #right-button-container {
@@ -548,9 +549,11 @@ if (location.href.includes('/book/')) {
     const synopsis = getContent(SELECTORS.SYNOPSIS);
 
     if (!cache.title || !cache.synopsis) {
+        const glossary = createGlossary(synopsis);
+
         const [translatedTitle, translatedSynopsis] = await Promise.all([
             translateContent(title, API_PARAMETERS.title),
-            translateContent(synopsis, API_PARAMETERS.synopsis),
+            translateContent(`<glossary>${JSON.stringify(glossary)}</glossary><synopsis>${synopsis}</synopsis>`, API_PARAMETERS.synopsis),
         ]);
 
         cache.title = translatedTitle;

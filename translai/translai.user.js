@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   2.0.1
+// @version   2.0.2
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -511,10 +511,16 @@ async function importNames() {
             for (const name of names) {
                 if (!name.original || !name.translated) continue;
                 if (cache.names.global.find(({ original }) => original === name.original)) continue;
+                
+                const localName = cache.names.local.find(({ original }) => original === name.original);
+                if (localName) cache.names.local = cache.names.local.filter(({ original }) => original !== name.original);
+
                 cache.names.global.push({ original: name.original, translated: name.translated });
             }
 
+            GM_setValue(`${BOOK_ID}:names`, cache.names.local);
             GM_setValue('names', cache.names.global);
+            refreshHighlight();
             alert('Import Successful!');
             input.remove();
         };

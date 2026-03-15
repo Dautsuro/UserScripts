@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   2.0.0
+// @version   2.0.1
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -108,6 +108,14 @@ GM_addStyle(`
     .button-container button {
         font-size: x-large;
         margin-top: 5px;
+    }
+
+    #import {
+        position: fixed;
+        z-index: 10000000;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
     }
 `);
 
@@ -488,6 +496,7 @@ async function exportNames() {
 
 async function importNames() {
     const input = document.createElement('input');
+    input.id = 'import';
     input.type = 'file';
     input.accept = '.json';
 
@@ -507,10 +516,13 @@ async function importNames() {
 
             GM_setValue('names', cache.names.global);
             alert('Import Successful!');
+            input.remove();
         };
         
         reader.readAsText(file);
     };
+
+    document.body.appendChild(input);
 }
 
 function injectButton(label, onClick, position = 'right') {

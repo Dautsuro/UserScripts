@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name      TranslAI
 // @namespace https://github.com/Dautsuro/userscripts
-// @version   1.9.1
+// @version   2.0.0
 // @match     https://www.69shuba.com/book/*.htm
 // @match     https://www.69shuba.com/txt/*/*
 // @grant     GM_xmlhttpRequest
@@ -475,31 +475,42 @@ function generateCheckPrompt() {
 }
 
 async function exportNames() {
-    const jsonString = JSON.stringify(cache.names.global);
-    const stream = new Blob([jsonString]).stream()
-        .pipeThrough(new CompressionStream('gzip'));
+    const blob = new Blob([JSON.stringify(cache.names.global)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
     
-    const compressedBuffer = await new Response(stream).arrayBuffer();
-    GM_setClipboard(btoa(String.fromCharCode(...new Uint8Array(compressedBuffer))));
+    a.href = url;
+    a.download = 'names.json';
+    a.click();
+    
+    URL.revokeObjectURL(url);
 }
 
 async function importNames() {
-    const base64String = prompt('Enter your base64 save token')?.trim();
-    if (!base64String) return;
-    const binary = Uint8Array.from(atob(base64String), c => c.charCodeAt(0));
-    const stream = new Blob([binary]).stream()
-        .pipeThrough(new DecompressionStream('gzip'));
-    
-    const decompressedText = await new Response(stream).text();
-    const names = JSON.parse(decompressedText);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
 
-    for (const name of names) {
-        if (!name.original || !name.translated) continue;
-        if (cache.names.global.find(({ original }) => original === name.original)) continue;
-        cache.names.global.push({ original: name.original, translated: name.translated });
-    }
+    input.onchange = event => {
+        const file = event.target.files[0];
+        const reader = new FileReader();
+        
+        reader.onload = readerEvent => {
+            const content = readerEvent.target.result;
+            const names = JSON.parse(content);
+            
+            for (const name of names) {
+                if (!name.original || !name.translated) continue;
+                if (cache.names.global.find(({ original }) => original === name.original)) continue;
+                cache.names.global.push({ original: name.original, translated: name.translated });
+            }
 
-    GM_setValue('names', cache.names.global);
+            GM_setValue('names', cache.names.global);
+            alert('Import Successful!');
+        };
+        
+        reader.readAsText(file);
+    };
 }
 
 function injectButton(label, onClick, position = 'right') {

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HTML Games Video Tracker
 // @namespace    https://github.com/Dautsuro/userscripts
-// @version      1.0.0
+// @version      1.1.0
 // @description  Tracks videos in HTML games.
 // @author       Dautsuro
 // @match        file:///C:/Games/*/*/*
@@ -20,16 +20,17 @@
 
     const CSS_PREFIX = 'hgvt';
     const GAME_NAME = window.location.href.split('/').slice(-3, -2)[0];
+    const trackedVideos = new WeakSet();
 
     GM_addStyle(`
-        video:not(.${CSS_PREFIX}-ended) {
+        video.${CSS_PREFIX}-tracked:not(.${CSS_PREFIX}-ended) {
             object-fit: contain;
             object-position: 9999px 9999px;
             overflow: hidden;
             background: red;
         }
 
-        video.${CSS_PREFIX}-playing {
+        video.${CSS_PREFIX}-tracked.${CSS_PREFIX}-playing {
             object-position: 50% 50%;
             background: black;
             cursor: none;
@@ -37,60 +38,79 @@
     `);
 
     function getVideoId(video) {
-        let src = video.getAttribute('src');
+        const src = video.getAttribute('src')
+            ?? video.querySelector('source')?.getAttribute('src');
 
-        if (!src) {
-            const srcEl = video.querySelector('source');
-            src = srcEl.getAttribute('src');
-        }
-
-        return `${GAME_NAME}:${src}`;
+        return src ? `${GAME_NAME}:${src}` : null;
     }
 
-    function trackVideos() {
-        const videos = document.querySelectorAll('video');
+    function trackVideo(video) {
+        if (trackedVideos.has(video)) return;
 
-        videos.forEach(video => {
-            const videoId = getVideoId(video);
-            let hasEnded = GM_getValue(videoId, false);
+        const videoId = getVideoId(video);
+        if (!videoId) return;
 
-            video.classList.toggle(`${CSS_PREFIX}-ended`, hasEnded);
+        trackedVideos.add(video);
+        let hasEnded = GM_getValue(videoId, false);
 
-            video.autoplay = hasEnded ? true : false;
-            video.controls = hasEnded ? false : true;
-            video.loop = hasEnded ? true : false;
-            video.muted = hasEnded ? true : false;
+        video.classList.add(`${CSS_PREFIX}-tracked`);
+        video.classList.toggle(`${CSS_PREFIX}-ended`, hasEnded);
 
-            video.addEventListener('play', () => {
-                if (hasEnded) return;
-                if (video.currentTime === 0) video.currentTime = Number.MIN_VALUE;
-                video.volume = 1;
-                video.classList.toggle(`${CSS_PREFIX}-playing`, true);
-                video.controls = false;
-                video.requestFullscreen();
-            });
+        video.autoplay = hasEnded;
+        video.controls = !hasEnded;
+        video.loop = hasEnded;
+        video.muted = hasEnded;
 
-            video.addEventListener('pause', () => {
-                if (hasEnded) return;
-                video.classList.toggle(`${CSS_PREFIX}-playing`, false);
-                video.controls = true;
-                document.exitFullscreen();
-            });
+        video.addEventListener('play', () => {
+            if (hasEnded) return;
+            if (video.currentTime === 0) video.currentTime = Number.MIN_VALUE;
+            video.volume = 1;
+            video.classList.add(`${CSS_PREFIX}-playing`);
+            video.controls = false;
+            void video.requestFullscreen().catch(() => {});
+        });
 
-            video.addEventListener('ended', () => {
-                if (hasEnded) return;
-                hasEnded = true;
-                GM_setValue(videoId, true);
-                video.classList.toggle(`${CSS_PREFIX}-ended`, true);
-                video.controls = false;
-                video.loop = true;
-                video.muted = true;
-                video.play();
-            });
+        video.addEventListener('pause', () => {
+            if (hasEnded) return;
+            video.classList.remove(`${CSS_PREFIX}-playing`);
+            video.controls = true;
+            void document.exitFullscreen().catch(() => {});
+        });
+
+        video.addEventListener('ended', () => {
+            if (hasEnded) return;
+            hasEnded = true;
+            GM_setValue(videoId, true);
+            video.classList.toggle(`${CSS_PREFIX}-ended`, true);
+            video.controls = false;
+            video.loop = true;
+            video.muted = true;
+            void video.play().catch(() => {});
         });
     }
 
-    const bodyObserver = new MutationObserver(trackVideos);
+    function trackVideos(root = document) {
+        if (root instanceof HTMLVideoElement) {
+            trackVideo(root);
+            return;
+        }
+
+        if (root instanceof HTMLSourceElement) {
+            const video = root.closest('video');
+            if (video) trackVideo(video);
+            return;
+        }
+
+        root.querySelectorAll('video').forEach(trackVideo);
+    }
+
+    const bodyObserver = new MutationObserver(mutations => {
+        mutations.forEach(mutation => {
+            mutation.addedNodes.forEach(node => {
+                if (node.nodeType === Node.ELEMENT_NODE) trackVideos(node);
+            });
+        });
+    });
     bodyObserver.observe(document.body, { childList: true, subtree: true });
     trackVideos();
 })();

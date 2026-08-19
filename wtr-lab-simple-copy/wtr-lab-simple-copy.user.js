@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WTR-LAB Simple Copy
 // @namespace    https://github.com/Dautsuro/userscripts
-// @version      1.1.0
+// @version      1.1.1
 // @description  Simple copy script for WTR-LAB.
 // @author       Dautsuro
 // @match        https://wtr-lab.com/en/novel/*/*/*
@@ -19,7 +19,7 @@
     async function copyName() {
         const chineseName = document.querySelector('input[name="from"]').value.trim();
         const translatedName = document.querySelector('input[name="to"]').value.trim();
-        const translatedNames = Array.from(document.querySelectorAll('.self-start span')).map((span) => span.textContent.trim());
+        const translatedNames = Array.from(document.querySelectorAll('.self-start span.px-1\\.5')).map((span) => span.textContent.trim());
         await navigator.clipboard.writeText(`${chineseName}|${translatedNames.join(';')}|Douluo Dalu`);
     }
 
